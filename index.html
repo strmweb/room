@@ -93,10 +93,6 @@
         </div>
 
         <!-- Кнопки управления (PiP и Админ) -->
-        .controls-group {
-            position: absolute; bottom: 8px; right: 8px;
-            z-index: 100; display: flex; gap: 4px;
-        }
         <div class="controls-group">
             <button class="ctrl-btn" onclick="togglePiP()" title="Картинка в картинке">📺</button>
             <button class="ctrl-btn" onclick="toggleAdminPanel()" title="Админ">⚙️</button>
@@ -170,16 +166,9 @@
         function initP2P() {
             updatePlayerControls();
             startAsViewer();
-            
-            // Если в течение 2 секунд хост не ответил, значит комната пустая — запускаем первое видео с 16 секунды
-            setTimeout(() => {
-                if (!hasReceivedInitialSync && !isAdmin) {
-                    loadVideo(document.getElementById('movieSelect').value, 16);
-                }
-            }, 2000);
         }
 
-        function startAsHost(preserveCurrentState = false) {
+        function startAsHost() {
             if (peer) peer.destroy();
             
             peer = new Peer(ROOM_ID + "_host");
@@ -193,7 +182,8 @@
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    setTimeout(() => startAsHost(preserveCurrentState), 1000);
+                    // Если хост с таким ID еще занят или старый узел не успел освободиться, пробуем перехватить через секунду
+                    setTimeout(startAsHost, 1000);
                 }
             });
 
@@ -290,8 +280,7 @@
             if (pass === "777") {
                 isAdmin = true;
                 updatePlayerControls();
-                // Запускаем хост, сохраняя текущий момент времени и видео без перезагрузки
-                startAsHost(true);
+                startAsHost();
                 document.getElementById('admin-panel').style.display = 'flex';
             } else if (pass !== null) {
                 alert("Неверный пароль!");
