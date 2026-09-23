@@ -6,7 +6,7 @@
     <title>Stream Room</title>
     <!-- Библиотека HLS.js для m3u8 видеопотоков -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-    <!-- Библиотека PeerJS для связи между устройствами -->
+    <!-- Библиотека PeerJS -->
     <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -44,7 +44,7 @@
         .chat-box { width: 100%; height: 100%; overflow: hidden; background: transparent; }
         .chat-box iframe { width: 100%; height: 100%; border: none; background: transparent; }
 
-        /* Минималистичная кнопка админа внизу */
+        /* Кнопка админа внизу */
         #admin-btn {
             position: absolute; bottom: 8px; right: 8px;
             z-index: 100; background: rgba(0, 0, 0, 0.3); color: rgba(255, 255, 255, 0.5);
@@ -54,7 +54,7 @@
         }
         #admin-btn:hover { background: rgba(0, 0, 0, 0.7); color: #fff; }
 
-        /* Кнопка разблокировки звука/воспроизведения для зрителей */
+        /* Кнопка разблокировки звука для зрителей */
         #sync-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 67%;
             background: rgba(0,0,0,0.4); z-index: 40; display: none;
@@ -116,81 +116,55 @@
 
     <script>
         const video = document.getElementById('videoElement');
-        let isAdmin = false;
+        let isAdmin = localStorage.getItem('is_stream_admin') === 'true';
         let peer;
-        let viewers = []; 
+        let viewers = [];
         let adminConnection = null;
-        let isSyncing = false; // Защита от зацикливания событий плеера
+        let isSyncing = false;
 
-        const ROOM_ID = "strmweb_live_room_sync_2026_v5"; 
+        const ROOM_ID = "strmweb_live_room_stable_2026_v7";
 
         function initP2P() {
-            peer = new Peer();
-
-            peer.on('open', () => {
-                connectToRoom();
-            });
+            // Если в этом браузере ранее включали админку, пробуем занять роль хоста сразу
+            if (isAdmin) {
+                startAsHost();
+            } else {
+                startAsViewer();
+            }
         }
 
-        function connectToRoom() {
-            const conn = peer.connect(ROOM_ID + "_host", { serialization: 'json' });
-
-            conn.on('open', () => {
-                isAdmin = false;
-                adminConnection = conn;
-                // Запрашиваем актуальное состояние у хоста при входе (даже если зашел позже)
-                conn.send({ type: 'get_status' });
-                console.log("Подключено к комнате как зритель");
-            });
-
-            conn.on('data', (data) => {
-                handleRemoteCommand(data);
-            });
-
-            conn.on('error', () => {
-                becomeHost();
-            });
-
-            // Если хост не отвечает, сами становимся хостом
-            setTimeout(() => {
-                if (!isAdmin && !adminConnection) {
-                    becomeHost();
-                }
-            }, 1200);
-        }
-
-        function becomeHost() {
+        function startAsHost() {
             if (peer) peer.destroy();
             
             peer = new Peer(ROOM_ID + "_host");
 
             peer.on('open', () => {
                 isAdmin = true;
-                console.log("Я стал главным хостом (Админ)");
-                
-                if (localStorage.getItem('is_stream_admin') === 'true') {
-                    document.getElementById('admin-panel').style.display = 'flex';
-                }
+                localStorage.setItem('is_stream_admin', 'true');
+                console.log("Режим: Хост (Админ)");
             });
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    setTimeout(initP2P, 1000);
+                    // Если хост уже занят старой сессией, пробуем подключиться как зритель
+                    console.log("Хост занят, подключаемся как зритель...");
+                    isAdmin = false;
+                    localStorage.removeItem('is_stream_admin');
+                    startAsViewer();
                 }
             });
 
             peer.on('connection', (incomingConn) => {
                 viewers.push(incomingConn);
-                
+
+                incomingConn.on('open', () => {
+                    // При новом подключении сразу шлем текущий статус (для опоздавших)
+                    sendCurrentState(incomingConn);
+                });
+
                 incomingConn.on('data', (data) => {
                     if (data.type === 'get_status') {
-                        // Отправляем зрителю текущее видео и таймкод при позднем входе
-                        incomingConn.send({
-                            type: 'sync_state',
-                            url: document.getElementById('movieSelect').value,
-                            time: video.currentTime,
-                            paused: video.paused
-                        });
+                        sendCurrentState(incomingConn);
                     }
                 });
 
@@ -200,38 +174,81 @@
             });
         }
 
+        function startAsViewer() {
+            if (peer) peer.destroy();
+
+            peer = new Peer();
+
+            peer.on('open', () => {
+                connectToHost();
+            });
+        }
+
+        function connectToHost() {
+            const conn = peer.connect(ROOM_ID + "_host", { serialization: 'json' });
+
+            conn.on('open', () => {
+                adminConnection = conn;
+                console.log("Подключено к хосту");
+                // Запрашиваем актуальное состояние сразу при подключении (опоздавший зритель)
+                conn.send({ type: 'get_status' });
+            });
+
+            conn.on('data', (data) => {
+                handleRemoteCommand(data);
+            });
+
+            conn.on('error', () => {
+                retryConnection();
+            });
+
+            conn.on('close', () => {
+                retryConnection();
+            });
+        }
+
+        function retryConnection() {
+            setTimeout(() => {
+                if (!isAdmin) {
+                    startAsViewer();
+                }
+            }, 2000);
+        }
+
         initP2P();
 
-        window.addEventListener('beforeunload', () => {
-            if (peer) peer.destroy();
-        });
+        function sendCurrentState(targetConn) {
+            targetConn.send({
+                type: 'sync_state',
+                url: document.getElementById('movieSelect').value,
+                time: video.currentTime,
+                paused: video.paused
+            });
+        }
 
         function toggleAdminPanel() {
-            let savedAdmin = localStorage.getItem('is_stream_admin') === 'true';
-            
-            if (savedAdmin) {
+            let pass = prompt("Введите код администратора:");
+            if (pass === "777") {
                 isAdmin = true;
-                if (peer && !isAdmin) { peer.destroy(); becomeHost(); }
+                localStorage.setItem('is_stream_admin', 'true');
+                startAsHost();
                 document.getElementById('admin-panel').style.display = 'flex';
-            } else {
-                let pass = prompt("Введите код администратора:");
-                if (pass === "777") {
-                    isAdmin = true;
-                    localStorage.setItem('is_stream_admin', 'true');
-                    
-                    if (peer) peer.destroy();
-                    becomeHost();
-
-                    document.getElementById('admin-panel').style.display = 'flex';
-                } else if (pass !== null) {
-                    alert("Неверный пароль!");
-                }
+            } else if (pass !== null) {
+                alert("Неверный пароль!");
             }
         }
 
         function closeAdminPanel() {
             document.getElementById('admin-panel').style.display = 'none';
         }
+
+        // Если хост уже был сохранен в памяти, даем возможность открыть панель без пароля
+        document.getElementById('admin-btn').addEventListener('click', (e) => {
+            if (isAdmin) {
+                e.stopImmediatePropagation(); // Перехватываем стандартный клик если уже админ
+                document.getElementById('admin-panel').style.display = 'flex';
+            }
+        });
 
         function loadVideo(url, callback) {
             if (url.endsWith('.m3u8')) {
@@ -256,7 +273,7 @@
             const url = document.getElementById('movieSelect').value;
             loadVideo(url, () => {
                 video.play();
-                broadcastCommand({ type: 'change_movie', url: url, time: 0 });
+                broadcastCommand({ type: 'change_movie', url: url, time: 0, paused: false });
             });
         }
 
@@ -277,46 +294,59 @@
 
         function handleRemoteCommand(data) {
             if (!isAdmin) {
-                isSyncing = true; // Блокируем отправку эха обратно
-                
+                isSyncing = true;
+
                 if (data.type === 'sync_state' || data.type === 'change_movie') {
-                    document.getElementById('movieSelect').value = data.url;
-                    loadVideo(data.url, () => {
-                        video.currentTime = data.time;
-                        if (!data.paused) {
+                    const currentUrl = document.getElementById('movieSelect').value;
+                    if (currentUrl !== data.url) {
+                        document.getElementById('movieSelect').value = data.url;
+                        loadVideo(data.url, () => {
+                            video.currentTime = data.time;
+                            if (!data.paused) {
+                                video.play().catch(() => {
+                                    document.getElementById('sync-overlay').style.display = 'flex';
+                                });
+                            }
+                        });
+                    } else {
+                        // Если видео то же самое, просто синхронизируем таймкод
+                        if (Math.abs(video.currentTime - data.time) > 1.5) {
+                            video.currentTime = data.time;
+                        }
+                        if (data.paused) {
+                            video.pause();
+                        } else {
                             video.play().catch(() => {
                                 document.getElementById('sync-overlay').style.display = 'flex';
                             });
                         }
-                        setTimeout(() => { isSyncing = false; }, 500);
-                    });
+                    }
                 } else if (data.type === 'seek') {
                     video.currentTime = data.time;
-                    setTimeout(() => { isSyncing = false; }, 300);
                 } else if (data.type === 'play') {
                     video.play().catch(() => {
                         document.getElementById('sync-overlay').style.display = 'flex';
                     });
-                    setTimeout(() => { isSyncing = false; }, 300);
                 } else if (data.type === 'pause') {
                     video.pause();
-                    setTimeout(() => { isSyncing = false; }, 300);
                 }
+
+                setTimeout(() => { isSyncing = false; }, 400);
             }
         }
 
-        // Перехват действий админа с защитой от флуда
+        // Перехват действий админа
         video.addEventListener('seeking', () => {
             if (isAdmin && !isSyncing) broadcastCommand({ type: 'seek', time: video.currentTime });
         });
         video.addEventListener('play', () => {
-            if (isAdmin && !isSyncing) broadcastCommand({ type: 'play', time: video.currentTime });
+            if (isAdmin && !isSyncing) broadcastCommand({ type: 'play', time: video.currentTime, paused: false });
         });
         video.addEventListener('pause', () => {
-            if (isAdmin && !isSyncing) broadcastCommand({ type: 'pause', time: video.currentTime });
+            if (isAdmin && !isSyncing) broadcastCommand({ type: 'pause', time: video.currentTime, paused: true });
         });
 
-        // Первичная загрузка для хоста
+        // Запуск плеера при открытии
         loadVideo(document.getElementById('movieSelect').value);
     </script>
 </body>
