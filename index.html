@@ -54,6 +54,16 @@
         }
         #admin-btn:hover { background: rgba(0, 0, 0, 0.7); color: #fff; }
 
+        /* Кнопка PiP (картинка в картинке) рядом с кнопкой админа */
+        #pip-btn {
+            position: absolute; bottom: 8px; right: 38px;
+            z-index: 100; background: rgba(0, 0, 0, 0.3); color: rgba(255, 255, 255, 0.7);
+            border: none; border-radius: 4px;
+            width: 24px; height: 24px; font-size: 12px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+        }
+        #pip-btn:hover { background: rgba(0, 0, 0, 0.7); color: #fff; }
+
         /* Кнопка разблокировки звука для зрителей */
         #sync-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 67%;
@@ -89,7 +99,8 @@
             <div id="sync-btn">▶ Нажмите для синхронизации</div>
         </div>
 
-        <!-- Кнопка админа внизу -->
+        <!-- Кнопка PiP и Админ -->
+        <button id="pip-btn" onclick="togglePiP()" title="Картинка в картинке">📺</button>
         <button id="admin-btn" onclick="toggleAdminPanel()">⚙️</button>
 
         <!-- Пульт управления -->
@@ -116,7 +127,7 @@
 
     <script>
         const video = document.getElementById('videoElement');
-        let isAdmin = false; // Принудительно сбрасываем при каждом запуске
+        let isAdmin = false;
         let peer;
         let viewers = [];
         let adminConnection = null;
@@ -124,14 +135,12 @@
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
 
-        // Управление элементами видео: у админа есть панель/ползунки, у зрителей — нет (защита от перемотки)
         function updatePlayerControls() {
             video.controls = isAdmin;
         }
 
         function initP2P() {
             updatePlayerControls();
-            // Все заходят как зрители, пока не введут пароль
             startAsViewer();
         }
 
@@ -143,7 +152,6 @@
             peer.on('open', () => {
                 isAdmin = true;
                 updatePlayerControls();
-                console.log("Режим: Хост (Админ)");
             });
 
             peer.on('error', (err) => {
@@ -242,6 +250,32 @@
             document.getElementById('admin-panel').style.display = 'none';
         }
 
+        // Функция переключения режима «Картинка в картинке»
+        async function togglePiP() {
+            try {
+                if (document.pictureInPictureElement) {
+                    await document.exitPictureInPicture();
+                } else if (document.pictureInPictureEnabled && video) {
+                    await video.requestPictureInPicture();
+                }
+            } catch (err) {
+                console.log("PiP ошибка:", err);
+            }
+        }
+
+        // Автоматический переход в PiP при сворачивании сайта / уходе с вкладки
+        document.addEventListener('visibilitychange', async () => {
+            if (document.hidden && document.pictureInPictureEnabled && !video.paused) {
+                try {
+                    if (!document.pictureInPictureElement) {
+                        await video.requestPictureInPicture();
+                    }
+                } catch (err) {
+                    console.log("Авто PiP недоступно:", err);
+                }
+            }
+        });
+
         function loadVideo(url, callback) {
             if (url.endsWith('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -331,7 +365,7 @@
             if (isAdmin && !isSyncing) broadcastCommand({ type: 'seek', time: video.currentTime });
         });
         video.addEventListener('play', () => {
-            if (isAdmin && !isSyncing) broadcastCommand({ type: 'play', time: video.currentTime, paused: false });
+            if (isAdmin && !isSyncing) broadcastCommand({ type.paused: false, type: 'play', time: video.currentTime });
         });
         video.addEventListener('pause', () => {
             if (isAdmin && !isSyncing) broadcastCommand({ type: 'pause', time: video.currentTime, paused: true });
