@@ -91,7 +91,6 @@
             100% { transform: scale(1); }
         }
 
-        /* Админ-панель */
         #admin-panel {
             position: absolute; top: 0; left: 0; width: 100%; height: 62%;
             background: rgba(10, 10, 10, 0.98); z-index: 50;
@@ -140,7 +139,6 @@
         </div>
 
         <video id="videoElement" class="video-player" playsinline autoplay></video>
-        <!-- Аудио для удержания фона -->
         <audio id="bgAudio" loop style="display:none;"></audio>
 
         <div class="chat-overlay">
@@ -187,7 +185,7 @@
         const bgAudio = document.getElementById('bgAudio');
         const adminBtn = document.getElementById('adminBtn');
         let isAdmin = false;
-        let peer;
+        let peer = null;
         let viewers = [];
         let adminConnection = null;
         let isSyncing = false;
@@ -259,7 +257,6 @@
             }
         });
 
-        // Защита от зависания картинки (если время идет, а кадры замерли)
         function initFreezeProtection() {
             if (freezeCheckTimer) clearInterval(freezeCheckTimer);
             let lastTime = -1;
@@ -269,8 +266,7 @@
                 if (!video.paused && hasStartedStream) {
                     if (video.currentTime === lastTime) {
                         freezeCount++;
-                        if (freezeCount >= 3) { // 3 секунды нет продвижения кадров
-                            console.log("Обнаружено зависание видеопотока, восстанавливаем...");
+                        if (freezeCount >= 3) {
                             let t = video.currentTime;
                             video.currentTime = t + 0.1;
                             video.play().catch(() => {});
@@ -294,64 +290,11 @@
             startAsViewer();
         }
 
-        function startAsHost() {
-            if (peer) peer.destroy();
-            peer = new Peer(ROOM_ID + "_host", { debug: 0 });
-
-            peer.on('open', () => {
-                isAdmin = true;
-                updatePlayerControls();
-                requestWakeLock();
-                startHostHeartbeat();
-            });
-
-            peer.on('error', (err) => {
-                if (err.type === 'unavailable-id') {
-                    setTimeout(startAsHost, 1500);
-                }
-            });
-
-            peer.on('connection', (incomingConn) => {
-                viewers.push(incomingConn);
-                incomingConn.on('open', () => {
-                    sendCurrentState(incomingConn);
-                });
-                incomingConn.on('data', (data) => {
-                    if (data.type === 'get_status') {
-                        sendCurrentState(incomingConn);
-                    }
-                });
-                incomingConn.on('close', () => {
-                    viewers = viewers.filter(c => c !== incomingConn);
-                });
-            });
-        }
-
-        function startHostHeartbeat() {
-            if (syncInterval) clearInterval(syncInterval);
-            syncInterval = setInterval(() => {
-                if (isAdmin && !video.paused) {
-                    broadcastCommand({
-                        type: 'sync_state',
-                        url: playlist[currentPlaylistIndex].url,
-                        time: video.currentTime,
-                        paused: video.paused
-                    });
-                }
-            }, 1000);
-        }
-
-        function sendCurrentState(targetConn) {
-            targetConn.send({
-                type: 'sync_state',
-                url: playlist[currentPlaylistIndex].url,
-                time: video.currentTime,
-                paused: video.paused
-            });
-        }
-
+        // Логика зрителя
         function startAsViewer() {
-            if (peer) peer.destroy();
+            if (peer) {
+                try { peer.destroy(); } catch(e) {}
+            }
             peer = new Peer({ debug: 0 });
 
             peer.on('open', () => {
@@ -408,6 +351,69 @@
             }
         }
 
+        // Логика хоста (админа)
+        function startAsHost() {
+            if (peer) {
+                try { peer.destroy(); } catch(e) {}
+            }
+            // Создаем ультимативный фиксированный ID хоста для комнаты
+            peer = new Peer(ROOM_ID + "_host", { debug: 0 });
+
+            peer.on('open', () => {
+                isAdmin = true;
+                updatePlayerControls();
+                requestWakeLock();
+                startHostHeartbeat();
+            });
+
+            peer.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    // Если ID занят старой сессией, пробуем переподключиться
+                    setTimeout(startAsHost, 1500);
+                }
+            });
+
+            peer.on('connection', (incomingConn) => {
+                if (!viewers.includes(incomingConn)) {
+                    viewers.push(incomingConn);
+                }
+                incomingConn.on('open', () => {
+                    sendCurrentState(incomingConn);
+                });
+                incomingConn.on('data', (data) => {
+                    if (data.type === 'get_status') {
+                        sendCurrentState(incomingConn);
+                    }
+                });
+                incomingConn.on('close', () => {
+                    viewers = viewers.filter(c => c !== incomingConn);
+                });
+            });
+        }
+
+        function startHostHeartbeat() {
+            if (syncInterval) clearInterval(syncInterval);
+            syncInterval = setInterval(() => {
+                if (isAdmin && !video.paused) {
+                    broadcastCommand({
+                        type: 'sync_state',
+                        url: playlist[currentPlaylistIndex].url,
+                        time: video.currentTime,
+                        paused: video.paused
+                    });
+                }
+            }, 1000);
+        }
+
+        function sendCurrentState(targetConn) {
+            targetConn.send({
+                type: 'sync_state',
+                url: playlist[currentPlaylistIndex].url,
+                time: video.currentTime,
+                paused: video.paused
+            });
+        }
+
         initP2P();
 
         function unlockPlayback() {
@@ -416,7 +422,6 @@
             video.muted = false;
             requestWakeLock();
 
-            // Запуск фонового аудио для удержания потока в фоне
             bgAudio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
             bgAudio.play().catch(() => {});
 
