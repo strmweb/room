@@ -12,16 +12,17 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body, html {
             width: 100%; height: 100%;
-            background-color: #0b0b0b; color: #ffffff;
+            background-color: #000; color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex; justify-content: center; align-items: center;
             overflow: hidden;
         }
         .stream-container {
-            position: relative; width: 100%; height: 100%;
-            max-width: 480px; max-height: 100vh;
+            position: relative; width: 100vw; height: 100vh;
+            max-width: 100vw; max-height: 100vh;
             background: #000; overflow: hidden;
             display: flex; flex-direction: column;
+            border-radius: 0; box-shadow: none;
         }
         @media (min-width: 481px) {
             .stream-container {
@@ -44,7 +45,6 @@
         .chat-box { width: 100%; height: calc(100% - 32px); overflow: hidden; background: transparent; }
         .chat-box iframe { width: 100%; height: 100%; border: none; background: transparent; }
 
-        /* Подняли кнопки выше, чтобы они не уходили за экран */
         .controls-group {
             position: absolute; bottom: 8px; right: 8px;
             z-index: 100; display: flex; gap: 4px; height: 24px; align-items: center;
@@ -90,25 +90,45 @@
             100% { transform: scale(1); }
         }
 
+        /* Админ-панель по центру */
         #admin-panel {
             position: absolute; top: 0; left: 0; width: 100%; height: 67%;
-            background: rgba(10, 10, 10, 0.95); z-index: 50;
-            display: none; flex-direction: column; padding: 20px; justify-content: center; gap: 10px;
+            background: rgba(10, 10, 10, 0.98); z-index: 50;
+            display: none; flex-direction: column; padding: 12px; 
+            justify-content: center; align-items: center; gap: 8px;
             overflow-y: auto;
         }
-        #admin-panel h3 { color: #00ffcc; font-size: 18px; text-align: center; margin-bottom: 2px; }
-        .admin-label { font-size: 12px; color: #aaa; }
-        .admin-select, .admin-input, .admin-btn-action {
-            width: 100%; padding: 10px; background: #1a1a1a; color: #fff;
-            border: 1px solid #333; border-radius: 8px; font-size: 13px; outline: none;
+        .admin-panel-content {
+            width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 8px;
+        }
+        #admin-panel h3 { color: #00ffcc; font-size: 16px; text-align: center; margin-bottom: 2px; }
+        .admin-label { font-size: 11px; color: #ccc; }
+        
+        /* Исправленный скроллинг и читаемый текст с переносом */
+        .playlist-container {
+            width: 100%; max-height: 180px; background: #141414;
+            border: 1px solid #444; border-radius: 8px; overflow-y: auto;
+            display: flex; flex-direction: column; gap: 4px; padding: 6px;
+        }
+        .playlist-item {
+            padding: 10px 14px; background: #1f1f1f; color: #ffffff; font-size: 13px; font-weight: 500;
+            border-radius: 6px; cursor: pointer; transition: background 0.2s;
+            text-align: center; white-space: normal; word-break: break-word; line-height: 1.3;
+        }
+        .playlist-item:hover { background: #2c2c2c; }
+        .playlist-item.active { background: rgba(0, 255, 204, 0.25); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.5); font-weight: 600; }
+
+        .admin-input, .admin-btn-action {
+            width: 100%; padding: 10px 12px; background: #1a1a1a; color: #fff;
+            border: 1px solid #444; border-radius: 8px; font-size: 13px; outline: none; text-align: center;
         }
         .admin-file-label {
             display: block; background: #1a1a1a; border: 1px dashed #00ffcc; color: #00ffcc;
-            padding: 10px; text-align: center; border-radius: 8px; font-size: 13px; cursor: pointer;
+            padding: 10px; text-align: center; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500;
         }
         .admin-file-label:hover { background: rgba(0,255,204,0.1); }
         #localVideoInput { display: none; }
-        .admin-btn-action { background: #00ffcc; color: #000; font-weight: bold; cursor: pointer; margin-top: 4px; }
+        .admin-btn-action { background: #00ffcc; color: #000; font-weight: bold; cursor: pointer; margin-top: 2px; }
     </style>
 </head>
 <body>
@@ -140,32 +160,23 @@
         </div>
 
         <div id="admin-panel">
-            <h3>Пульт трансляции</h3>
-            <div class="admin-label">Выбрать сериал / фильм:</div>
-            <select id="movieSelect" class="admin-select" onchange="changeMovieAdmin()">
-                <option value="https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97_1_sezon_-_1_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 1 серия)</option>
-                <option value="https://o8.anwap.be/serials/oshls/HNDDNVU5cxTE6glAC3mVmA/1790296490/Lyudi_Iks_97_1_sezon_-_2_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 2 серия)</option>
-                <option value="https://o8.anwap.be/serials/oshls/-zWD4d_xVTn6P9WXHDW5IQ/1790300984/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 3 серия)</option>
-                <option value="https://o8.anwap.be/serials/oshls/rPxMUpcEI6I7KIdwnLWbkQ/1790301060/Lyudi_Iks_97_1_sezon_-_4_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 4 серия)</option>
-                <option value="https://o8.anwap.be/serials/oshls/WtJF55Cpr376S6NYdQ3Y7A/1790301120/Lyudi_Iks_97_1_sezon_-_5_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 5 серия)</option>
-                <option value="https://o8.anwap.be/serials/oshls/r-wkm0TdDdy5MtdEYdYmIw/1790301196/Lyudi_Iks_97_1_sezon_-_6_seriya_(anwap.org).m3u8">Люди Икс '97 (1 сезон 6 серия)</option>
-                <option value="https://o8.anwap.be/serials/oshls/OD8a3jgGnH8dX3bXg4kXpg/1790301247/Lyudi_Iks_97_1_sezon_-_7_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 7 серия)</option>
-                <option value="https://o8.anwap.be/serials/oshls/IRj6rVZMFQlgGuOs-cGTWg/1790301283/Люди Икс 97 (1 сезон 8 серия)</option>
-                <option value="https://o9.anwap.be/serials/oshls/Mk3yOj0cscTRY0uIkvId3Q/1790301313/Люди Икс 97 (1 сезон 9 серия)</option>
-                <option value="https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Люди Икс '97 (1 сезон 10 серия)</option>
-            </select>
+            <div class="admin-panel-content">
+                <h3>Пульт трансляции</h3>
+                <div class="admin-label">Плейлист (прокрутка любых 100+ ссылок):</div>
+                <div id="playlistContainer" class="playlist-container"></div>
 
-            <div class="admin-label">Или вставить ссылку вручную:</div>
-            <input type="text" id="customUrlInput" class="admin-input" placeholder="https://..." value="">
-            <button class="admin-btn-action" onclick="playCustomUrl()">Воспроизвести ссылку</button>
+                <div class="admin-label">Или вставить ссылку вручную:</div>
+                <input type="text" id="customUrlInput" class="admin-input" placeholder="https://..." value="">
+                <button class="admin-btn-action" onclick="playCustomUrl()">Воспроизвести ссылку</button>
 
-            <div class="admin-label" style="margin-top: 4px;">Или загрузить файл с устройства:</div>
-            <label class="admin-file-label">
-                📁 Выбрать видеофайл (.mp4)
-                <input type="file" id="localVideoInput" accept="video/mp4,video/*" onchange="playLocalVideo(event)">
-            </label>
+                <div class="admin-label">Или загрузить файл с устройства:</div>
+                <label class="admin-file-label">
+                    📁 Выбрать видеофайл (.mp4)
+                    <input type="file" id="localVideoInput" accept="video/mp4,video/*" onchange="playLocalVideo(event)">
+                </label>
 
-            <button class="admin-btn-action" onclick="closeAdminPanel()" style="background: #333; color: #fff; margin-top: 6px;">Скрыть пульт</button>
+                <button class="admin-btn-action" onclick="closeAdminPanel()" style="background: #333; color: #fff; margin-top: 4px;">Скрыть пульт</button>
+            </div>
         </div>
     </div>
 
@@ -184,6 +195,44 @@
         let latestAdminData = null;
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
+
+        let playlist = [
+            { title: "Люди Икс 97 (1 сезон 1 серия)", url: "https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97_1_sezon_-_1_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 2 серия)", url: "https://o8.anwap.be/serials/oshls/HNDDNVU5cxTE6glAC3mVmA/1790296490/Lyudi_Iks_97_1_sezon_-_2_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 3 серия)", url: "https://o8.anwap.be/serials/oshls/-zWD4d_xVTn6P9WXHDW5IQ/1790300984/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 4 серия)", url: "https://o8.anwap.be/serials/oshls/rPxMUpcEI6I7KIdwnLWbkQ/1790301060/Lyudi_Iks_97_1_sezon_-_4_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 5 серия)", url: "https://o8.anwap.be/serials/oshls/WtJF55Cpr376S6NYdQ3Y7A/1790301120/Lyudi_Iks_97_1_sezon_-_5_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс '97 (1 сезон 6 серия)", url: "https://o8.anwap.be/serials/oshls/r-wkm0TdDdy5MtdEYdYmIw/1790301196/Lyudi_Iks_97_1_sezon_-_6_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 7 серия)", url: "https://o8.anwap.be/serials/oshls/OD8a3jgGnH8dX3bXg4kXpg/1790301247/Lyudi_Iks_97_1_sezon_-_7_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 8 серия)", url: "https://o8.anwap.be/serials/oshls/IRj6rVZMFQlgGuOs-cGTWg/1790301283/Lyudi_Iks_97_1_sezon_-_8_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 9 серия)", url: "https://o9.anwap.be/serials/oshls/Mk3yOj0cscTRY0uIkvId3Q/1790301313/Lyudi_Iks_97_1_sezon_-_9_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс '97 (1 сезон 10 серия)", url: "https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97_1_sezon_-_10_seriya_(anwap.org).m3u8" }
+        ];
+        let currentPlaylistIndex = 0;
+
+        function renderPlaylist() {
+            const container = document.getElementById('playlistContainer');
+            container.innerHTML = '';
+            playlist.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'playlist-item' + (index === currentPlaylistIndex ? ' active' : '');
+                div.textContent = `${index + 1}. ${item.title}`;
+                div.onclick = () => selectPlaylistItem(index);
+                container.appendChild(div);
+            });
+        }
+
+        function selectPlaylistItem(index) {
+            currentPlaylistIndex = index;
+            renderPlaylist();
+            const item = playlist[index];
+            loadVideo(item.url, 16, () => {
+                video.play().catch(() => {});
+                broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
+            });
+        }
+
+        renderPlaylist();
 
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
@@ -222,7 +271,6 @@
 
         function startAsHost() {
             if (peer) peer.destroy();
-            
             peer = new Peer(ROOM_ID + "_host", { debug: 0 });
 
             peer.on('open', () => {
@@ -240,17 +288,14 @@
 
             peer.on('connection', (incomingConn) => {
                 viewers.push(incomingConn);
-
                 incomingConn.on('open', () => {
                     sendCurrentState(incomingConn);
                 });
-
                 incomingConn.on('data', (data) => {
                     if (data.type === 'get_status') {
                         sendCurrentState(incomingConn);
                     }
                 });
-
                 incomingConn.on('close', () => {
                     viewers = viewers.filter(c => c !== incomingConn);
                 });
@@ -263,7 +308,7 @@
                 if (isAdmin && !video.paused) {
                     broadcastCommand({
                         type: 'sync_state',
-                        url: document.getElementById('movieSelect').value,
+                        url: playlist[currentPlaylistIndex].url,
                         time: video.currentTime,
                         paused: video.paused
                     });
@@ -274,7 +319,7 @@
         function sendCurrentState(targetConn) {
             targetConn.send({
                 type: 'sync_state',
-                url: document.getElementById('movieSelect').value,
+                url: playlist[currentPlaylistIndex].url,
                 time: video.currentTime,
                 paused: video.paused
             });
@@ -287,7 +332,6 @@
             peer.on('open', () => {
                 connectToHost();
             });
-
             peer.on('error', () => {
                 handleViewerDisconnect();
             });
@@ -301,14 +345,11 @@
 
             conn.on('open', () => {
                 adminConnection = conn;
-                
                 if (!hasStartedStream) {
                     document.getElementById('waiting-text').style.display = 'none';
                     document.getElementById('sync-btn').style.display = 'block';
                 }
-
                 conn.send({ type: 'get_status' });
-                
                 if (reconnectTimer) {
                     clearInterval(reconnectTimer);
                     reconnectTimer = null;
@@ -323,7 +364,6 @@
             conn.on('error', () => {
                 handleViewerDisconnect();
             });
-
             conn.on('close', () => {
                 handleViewerDisconnect();
             });
@@ -331,13 +371,11 @@
 
         function handleViewerDisconnect() {
             adminConnection = null;
-            
             if (!isAdmin && hasStartedStream) {
                 const syncBtn = document.getElementById('sync-btn');
                 syncBtn.style.display = 'block';
                 syncBtn.innerText = "🔄 Синхронизировать с админом";
             }
-
             if (!isAdmin && !reconnectTimer) {
                 reconnectTimer = setInterval(() => {
                     connectToHost();
@@ -358,7 +396,7 @@
             } else if (adminConnection && adminConnection.open) {
                 adminConnection.send({ type: 'get_status' });
             } else {
-                loadVideo(document.getElementById('movieSelect').value, 16, () => {
+                loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
                     video.play().catch(() => {});
                 });
             }
@@ -371,7 +409,6 @@
                     document.getElementById('sync-btn').style.display = 'block';
                     return;
                 }
-
                 isSyncing = true;
                 applyAdminData(data);
                 setTimeout(() => { isSyncing = false; }, 300);
@@ -380,9 +417,13 @@
 
         function applyAdminData(data) {
             if (data.type === 'sync_state' || data.type === 'change_movie') {
-                const currentUrl = document.getElementById('movieSelect').value;
+                const currentUrl = playlist[currentPlaylistIndex].url;
                 if (currentUrl !== data.url) {
-                    document.getElementById('movieSelect').value = data.url;
+                    let foundIdx = playlist.findIndex(p => p.url === data.url);
+                    if (foundIdx !== -1) {
+                        currentPlaylistIndex = foundIdx;
+                        renderPlaylist();
+                    }
                     loadVideo(data.url, data.time, () => {
                         if (!data.paused) video.play().catch(() => {});
                     });
@@ -416,10 +457,9 @@
                 isAdmin = true;
                 hasStartedStream = true;
                 updatePlayerControls();
-                
                 adminBtn.classList.add('admin-active');
 
-                loadVideo(document.getElementById('movieSelect').value, 16, () => {
+                loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
                     video.play().catch(() => {});
                 });
                 document.getElementById('sync-overlay').style.display = 'none';
@@ -443,14 +483,10 @@
                 return;
             }
 
-            const select = document.getElementById('movieSelect');
-            let opt = document.createElement('option');
-            opt.value = url;
-            opt.textContent = "🔗 Ручная ссылка: " + url.split('/').pop().substring(0, 25);
-            select.insertBefore(opt, select.firstChild);
-            select.selectedIndex = 0;
+            playlist.unshift({ title: "🔗 Ручная: " + url.split('/').pop().substring(0, 25), url: url });
+            currentPlaylistIndex = 0;
+            renderPlaylist();
 
-            // Теперь ручные ссылки запускаются с 16 секунды точно так же, как и остальные потоки
             loadVideo(url, 16, () => {
                 video.play().catch(() => {});
                 broadcastCommand({ type: 'change_movie', url: url, time: 16, paused: false });
@@ -463,12 +499,9 @@
             if (!file) return;
             const fileURL = URL.createObjectURL(file);
 
-            const select = document.getElementById('movieSelect');
-            let opt = document.createElement('option');
-            opt.value = fileURL;
-            opt.textContent = `📁 ${file.name}`;
-            select.insertBefore(opt, select.firstChild);
-            select.selectedIndex = 0;
+            playlist.unshift({ title: `📁 ${file.name}`, url: fileURL });
+            currentPlaylistIndex = 0;
+            renderPlaylist();
 
             loadVideo(fileURL, 16, () => {
                 video.play().catch(() => {});
@@ -507,7 +540,6 @@
         }
 
         function loadVideo(url, targetTime = 16, callback) {
-            // Поддержка различных форматов и потоков (mp4, m3u8, веб-потоки)
             if (url.includes('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
@@ -545,23 +577,19 @@
             }
         }
 
-        function changeMovieAdmin() {
-            const url = document.getElementById('movieSelect').value;
-            loadVideo(url, 16, () => {
-                video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: url, time: 16, paused: false });
-            });
-        }
-
         video.addEventListener('ended', () => {
             if (isAdmin) {
-                const select = document.getElementById('movieSelect');
-                if (select.selectedIndex < select.options.length - 1) {
-                    select.selectedIndex++;
+                if (currentPlaylistIndex < playlist.length - 1) {
+                    currentPlaylistIndex++;
                 } else {
-                    select.selectedIndex = 0;
+                    currentPlaylistIndex = 0;
                 }
-                changeMovieAdmin();
+                renderPlaylist();
+                const item = playlist[currentPlaylistIndex];
+                loadVideo(item.url, 16, () => {
+                    video.play().catch(() => {});
+                    broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
+                });
             }
         });
 
