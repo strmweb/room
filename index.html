@@ -212,7 +212,7 @@
             { title: "Люди Икс '97 (1 сезон 10 серия)", url: "https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97_1_sezon_-_10_seriya_(anwap.org).m3u8" }
         ];
         let currentPlaylistIndex = 0;
-        let activeStreamUrl = null; // Хранит текущий запущенный админом URL
+        let activeStreamUrl = null;
 
         function renderPlaylist() {
             const container = document.getElementById('playlistContainer');
@@ -356,7 +356,6 @@
             conn.on('data', (data) => {
                 latestAdminData = data;
 
-                // Если это фоновый тик времени и поток тот же самый — тихо выравниваем таймлайн
                 if (data.type === 'sync_state') {
                     if (hasStartedStream && activeStreamUrl === data.url) {
                         if (Math.abs(video.currentTime - data.time) > 3.0 && !video.paused) {
@@ -366,8 +365,7 @@
                     }
                 }
 
-                // Во всех остальных случаях (смена потока, первый вход, возвращение админа) показываем единую кнопку
-                showSyncPrompt(data.type === 'change_movie' ? "🔄 Доступно новое видео от админа" : "▶ Нажмите для старта и синхронизации");
+                showSyncPrompt(data.type === 'change_movie' ? "🔄 Переключиться на поток админа" : "▶ Синхронизировать");
             });
 
             conn.on('error', () => { handleViewerDisconnect(); });
@@ -383,10 +381,10 @@
             if (!hasStartedStream) {
                 waitingText.style.display = 'block';
                 waitingText.innerText = "Stream Room";
-                syncBtn.innerText = "▶ Нажмите для старта и синхронизации";
+                syncBtn.innerText = "▶ Нажмите для старта";
             } else {
                 waitingText.style.display = 'none';
-                syncBtn.innerText = buttonText || "🔄 Синхронизировать с потоком";
+                syncBtn.innerText = buttonText || "🔄 Синхронизировать";
             }
             syncBtn.style.display = 'block';
         }
@@ -473,11 +471,8 @@
                 updatePlayerControls();
                 adminBtn.classList.add('admin-active');
 
-                // Админка открывается, но видео НЕ запускается автоматически (висит заглушка до выбора)
-                document.getElementById('sync-overlay').style.display = 'flex';
-                document.getElementById('waiting-text').style.display = 'block';
-                document.getElementById('waiting-text').innerText = "Stream Room";
-                document.getElementById('sync-btn').style.display = 'none';
+                // Прячем заглушку сразу при открытии пульта админом, чтобы видеоэлемент был готов к выбору
+                document.getElementById('sync-overlay').style.display = 'none';
 
                 startAsHost();
                 document.getElementById('admin-panel').style.display = 'flex';
@@ -508,7 +503,6 @@
                 broadcastCommand({ type: 'change_movie', url: url, time: 16, paused: false });
             });
             urlInput.value = '';
-            alert("Ссылка успешно запущена!");
         }
 
         function playLocalVideo(event) {
