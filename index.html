@@ -240,9 +240,9 @@
             currentPlaylistIndex = index;
             renderPlaylist();
             const item = playlist[index];
-            loadVideo(item.url, 16, () => {
+            loadVideo(item.url, video.currentTime || 0, () => {
                 video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
+                broadcastCommand({ type: 'change_movie', url: item.url, time: video.currentTime, paused: false });
             });
         }
 
@@ -254,8 +254,6 @@
             }
         }
 
-        // Убран принудительный запуск паузы при сворачивании у админа. 
-        // Поток и у админа, и у зрителей теперь продолжается независимо от фонового режима вкладки.
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 requestWakeLock();
@@ -276,7 +274,9 @@
 
         // --- ЛОГИКА АДМИНА (ХОСТА) ---
         function startAsHost() {
-            if (peer) peer.destroy();
+            if (peer) {
+                try { peer.destroy(); } catch (e) {}
+            }
             
             peer = new Peer(ROOM_ID + "_host", peerConfig);
 
@@ -289,6 +289,7 @@
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
+                    // Если старая сессия еще не отвалилась на сервере, пробуем переподключиться через секунду
                     setTimeout(startAsHost, 1500);
                 }
             });
@@ -337,7 +338,9 @@
 
         // --- ЛОГИКА ЗРИТЕЛЯ ---
         function startAsViewer() {
-            if (peer) peer.destroy();
+            if (peer) {
+                try { peer.destroy(); } catch (e) {}
+            }
             peer = new Peer(peerConfig);
 
             peer.on('open', () => {
@@ -362,7 +365,6 @@
                     document.getElementById('waiting-text').style.display = 'none';
                     document.getElementById('sync-btn').style.display = 'block';
                 } else {
-                    // Если зритель уже смотрел, но админ переподключился — показываем кнопку синхронизации для удобства
                     const syncBtn = document.getElementById('sync-btn');
                     syncBtn.style.display = 'block';
                     syncBtn.innerText = "🔄 Синхронизировать с админом";
@@ -422,13 +424,13 @@
                     if (latestAdminData) {
                         applyAdminData(latestAdminData);
                     } else {
-                        loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
+                        loadVideo(playlist[currentPlaylistIndex].url, video.currentTime || 0, () => {
                             video.play().catch(() => {});
                         });
                     }
                 }, 300);
             } else {
-                loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
+                loadVideo(playlist[currentPlaylistIndex].url, video.currentTime || 0, () => {
                     video.play().catch(() => {});
                 });
             }
@@ -449,7 +451,6 @@
         }
 
         function applyAdminData(data) {
-            // При успешном получении свежих данных от админа скрываем кнопку синхронизации, если она висела
             if (hasStartedStream) {
                 document.getElementById('sync-overlay').style.display = 'none';
             }
@@ -499,7 +500,7 @@
                 
                 adminBtn.classList.add('admin-active');
 
-                loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
+                loadVideo(playlist[currentPlaylistIndex].url, video.currentTime || 0, () => {
                     video.play().catch(() => {});
                 });
                 document.getElementById('sync-overlay').style.display = 'none';
@@ -527,10 +528,11 @@
             currentPlaylistIndex = 0;
             renderPlaylist();
 
-            loadVideo(url, 16, () => {
+            loadVideo(url, 0, () => {
                 video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: url, time: 16, paused: false });
+                broadcastCommand({ type: 'change_movie', url: url, time: 0, paused: false });
             });
+            urlInput.value = '';
             alert("Ссылка успешно запущена!");
         }
 
@@ -543,9 +545,9 @@
             currentPlaylistIndex = 0;
             renderPlaylist();
 
-            loadVideo(fileURL, 16, () => {
+            loadVideo(fileURL, 0, () => {
                 video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: fileURL, time: 16, paused: false });
+                broadcastCommand({ type: 'change_movie', url: fileURL, time: 0, paused: false });
             });
         }
 
@@ -576,7 +578,7 @@
             } catch (err) {}
         }
 
-        function loadVideo(url, targetTime = 16, callback) {
+        function loadVideo(url, targetTime = 0, callback) {
             if (url.endsWith('.m3u8') || url.includes('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
@@ -597,14 +599,14 @@
 
         function setupStartTime(targetTime, callback) {
             const setTimeOnce = () => {
-                if (video.currentTime < 1) {
+                if (targetTime > 0 && video.currentTime < 1) {
                     video.currentTime = targetTime;
                 }
                 video.removeEventListener('loadedmetadata', setTimeOnce);
                 if (callback) callback();
             };
             if (video.readyState >= 1) {
-                if (video.currentTime < 1) video.currentTime = targetTime;
+                if (targetTime > 0 && video.currentTime < 1) video.currentTime = targetTime;
                 if (callback) callback();
             } else {
                 video.addEventListener('loadedmetadata', setTimeOnce);
@@ -620,9 +622,9 @@
                 }
                 renderPlaylist();
                 const item = playlist[currentPlaylistIndex];
-                loadVideo(item.url, 16, () => {
+                loadVideo(item.url, 0, () => {
                     video.play().catch(() => {});
-                    broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
+                    broadcastCommand({ type: 'change_movie', url: item.url, time: 0, paused: false });
                 });
             }
         });
