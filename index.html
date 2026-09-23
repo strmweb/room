@@ -57,17 +57,22 @@
         }
         .ctrl-btn:hover { background: rgba(0, 0, 0, 0.8); color: #fff; }
 
-        /* Кнопка разблокировки звука и фонового режима */
+        /* Экран ожидания и кнопка старта */
         #sync-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 67%;
-            background: rgba(0,0,0,0.6); z-index: 40; display: flex;
-            justify-content: center; align-items: center; cursor: pointer;
+            background: #000000; z-index: 40; display: flex;
+            justify-content: center; align-items: center; flex-direction: column;
+        }
+        #waiting-text {
+            font-size: 28px; font-weight: 800; letter-spacing: 2px; color: #00ffcc;
+            text-transform: uppercase; text-shadow: 0 0 20px rgba(0,255,204,0.4);
         }
         #sync-btn {
-            background: #00ffcc; color: #000; padding: 12px 24px;
+            display: none; background: #00ffcc; color: #000; padding: 12px 24px;
             border-radius: 20px; font-weight: bold; font-size: 14px;
-            box-shadow: 0 4px 15px rgba(0,255,204,0.4); text-align: center;
+            box-shadow: 0 4px 15px rgba(0,255,204,0.4); text-align: center; cursor: pointer;
         }
+        #sync-btn:hover { background: #00e6b8; }
 
         /* Панель администратора */
         #admin-panel {
@@ -87,9 +92,10 @@
 <body>
 
     <div class="stream-container">
-        <!-- Кнопка разблокировки/старта -->
-        <div id="sync-overlay" onclick="unlockPlayback()">
-            <div id="sync-btn">▶ Нажмите для старта и синхронизации</div>
+        <!-- Экран ожидания (по умолчанию стильный логотип strmweb) -->
+        <div id="sync-overlay">
+            <div id="waiting-text">strmweb</div>
+            <div id="sync-btn" onclick="unlockPlayback()">▶ Нажмите для старта и синхронизации</div>
         </div>
 
         <!-- Кнопки управления (PiP и Админ) доступны всем -->
@@ -130,6 +136,7 @@
         let wakeLock = null;
         let syncInterval = null;
         let reconnectTimer = null;
+        let hasStreamStarted = false; // Флаг: запущена ли трансляция админом
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
 
@@ -144,7 +151,7 @@
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 requestWakeLock();
-                if (video.paused) {
+                if (video.paused && hasStreamStarted) {
                     video.play().catch(() => {});
                 }
                 if (!isAdmin && adminConnection && adminConnection.open) {
@@ -154,21 +161,18 @@
         });
 
         video.addEventListener('leavepictureinpicture', () => {
-            if (video.paused) {
+            if (video.paused && hasStreamStarted) {
                 video.play().catch(() => {});
             }
         });
 
         function updatePlayerControls() {
-            // Элементы управления нативной панели только у админа, у зрителей скрыты для красоты
             video.controls = isAdmin;
         }
 
         function initP2P() {
             updatePlayerControls();
-            loadVideo(document.getElementById('movieSelect').value, 16, () => {
-                startAsViewer();
-            });
+            startAsViewer(); // Зритель сразу слушает эфир в фоновом режиме
         }
 
         function startAsHost() {
@@ -260,6 +264,7 @@
 
         function handleDisconnect() {
             adminConnection = null;
+            // Если админ улетел с трансляции, поток у зрителей НЕ останавливается (они продолжают смотреть то, что смотрели)
             if (!isAdmin && !reconnectTimer) {
                 reconnectTimer = setInterval(() => {
                     connectToHost();
@@ -287,7 +292,15 @@
             let pass = prompt("Введите код администратора:");
             if (pass === "777") {
                 isAdmin = true;
+                hasStreamStarted = true;
                 updatePlayerControls();
+                
+                // Админу сразу загружаем видео и скрываем заставку
+                loadVideo(document.getElementById('movieSelect').value, 16, () => {
+                    video.play().catch(() => {});
+                });
+                document.getElementById('sync-overlay').style.display = 'none';
+
                 startAsHost();
                 document.getElementById('admin-panel').style.display = 'flex';
             } else if (pass !== null) {
@@ -376,48 +389,55 @@
             }
         }
 
+        // Кнопка для зрителя: активирует звук и синхронизируется с админом
         function unlockPlayback() {
+            hasStreamStarted = true;
             document.getElementById('sync-overlay').style.display = 'none';
-            if (video.currentTime < 1) video.currentTime = 16;
-            video.muted = false; // Разрешаем звук при клике
+            video.muted = false; 
             video.play().catch(() => {});
             requestWakeLock();
+            
+            // Сразу запрашиваем актуальный таймкод у админа при нажатии
+            if (adminConnection && adminConnection.open) {
+                adminConnection.send({ type: 'get_status' });
+            }
         }
 
         function handleRemoteCommand(data) {
             if (!isAdmin) {
                 isSyncing = true;
 
+                // Как только админ прислал команду / запустил трансляцию, показываем кнопку синхронизации для зрителей
+                if (!hasStreamStarted && (data.type === 'sync_state' || data.type === 'change_movie')) {
+                    document.getElementById('waiting-text').style.display = 'none';
+                    document.getElementById('sync-btn').style.display = 'block';
+                }
+
                 if (data.type === 'sync_state' || data.type === 'change_movie') {
                     const currentUrl = document.getElementById('movieSelect').value;
                     if (currentUrl !== data.url) {
                         document.getElementById('movieSelect').value = data.url;
                         loadVideo(data.url, data.time, () => {
-                            if (!data.paused) {
-                                video.play().catch(() => {
-                                    document.getElementById('sync-overlay').style.display = 'flex';
-                                });
+                            if (hasStreamStarted && !data.paused) {
+                                video.play().catch(() => {});
                             }
                         });
                     } else {
-                        // Увеличили порог рассинхрона до 1.5 сек, чтобы звук успевал стабильно декодироваться без тиков и заиканий
                         if (Math.abs(video.currentTime - data.time) > 1.5) {
                             video.currentTime = data.time;
                         }
                         if (data.paused) {
                             video.pause();
                         } else {
-                            video.play().catch(() => {
-                                document.getElementById('sync-overlay').style.display = 'flex';
-                            });
+                            if (hasStreamStarted) {
+                                video.play().catch(() => {});
+                            }
                         }
                     }
                 } else if (data.type === 'seek') {
-                    video.currentTime = data.time;
+                    if (hasStreamStarted) video.currentTime = data.time;
                 } else if (data.type === 'play') {
-                    video.play().catch(() => {
-                        document.getElementById('sync-overlay').style.display = 'flex';
-                    });
+                    if (hasStreamStarted) video.play().catch(() => {});
                 } else if (data.type === 'pause') {
                     video.pause();
                 }
