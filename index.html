@@ -212,6 +212,7 @@
             { title: "Люди Икс '97 (1 сезон 10 серия)", url: "https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97_1_sezon_-_10_seriya_(anwap.org).m3u8" }
         ];
         let currentPlaylistIndex = 0;
+        let activeStreamUrl = null; // Хранит текущий запущенный админом URL
 
         function renderPlaylist() {
             const container = document.getElementById('playlistContainer');
@@ -230,6 +231,7 @@
             currentPlaylistIndex = index;
             renderPlaylist();
             const item = playlist[index];
+            activeStreamUrl = item.url;
             loadVideo(item.url, 16, () => {
                 video.play().catch(() => {});
                 broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
@@ -300,10 +302,10 @@
         function startHostHeartbeat() {
             if (syncInterval) clearInterval(syncInterval);
             syncInterval = setInterval(() => {
-                if (isAdmin && !video.paused) {
+                if (isAdmin && !video.paused && activeStreamUrl) {
                     broadcastCommand({
                         type: 'sync_state',
-                        url: playlist[currentPlaylistIndex].url,
+                        url: activeStreamUrl,
                         time: video.currentTime,
                         paused: video.paused
                     });
@@ -312,10 +314,10 @@
         }
 
         function sendCurrentState(targetConn) {
-            if (isAdmin) {
+            if (isAdmin && activeStreamUrl) {
                 targetConn.send({
                     type: 'change_movie',
-                    url: playlist[currentPlaylistIndex].url,
+                    url: activeStreamUrl,
                     time: video.currentTime,
                     paused: video.paused
                 });
@@ -354,32 +356,25 @@
             conn.on('data', (data) => {
                 latestAdminData = data;
 
-                // СЛУЧАЙ 1: Регулярный фоновый пинг времени (sync_state) — просто догоняем таймлайн без дерганья кнопок
+                // Если это фоновый тик времени и поток тот же самый — тихо выравниваем таймлайн
                 if (data.type === 'sync_state') {
-                    if (hasStartedStream) {
-                        let foundIdx = playlist.findIndex(p => p.url === data.url);
-                        if (foundIdx !== -1 && foundIdx !== currentPlaylistIndex) {
-                            // Админ сменил серию, но мы не синхронизированы — покажем кнопку
-                            showSyncPrompt();
-                        } else {
-                            // Тихо подтягиваем рассинхрон времени, если он больше 3 секунд
-                            if (Math.abs(video.currentTime - data.time) > 3.0 && !video.paused) {
-                                video.currentTime = data.time;
-                            }
+                    if (hasStartedStream && activeStreamUrl === data.url) {
+                        if (Math.abs(video.currentTime - data.time) > 3.0 && !video.paused) {
+                            video.currentTime = data.time;
                         }
+                        return;
                     }
-                    return;
                 }
 
-                // СЛУЧАЙ 2: Реальное изменение фильма/серии, пауза, плей или первый вход — показываем кнопку синхронизации
-                showSyncPrompt();
+                // Во всех остальных случаях (смена потока, первый вход, возвращение админа) показываем единую кнопку
+                showSyncPrompt(data.type === 'change_movie' ? "🔄 Доступно новое видео от админа" : "▶ Нажмите для старта и синхронизации");
             });
 
             conn.on('error', () => { handleViewerDisconnect(); });
             conn.on('close', () => { handleViewerDisconnect(); });
         }
 
-        function showSyncPrompt() {
+        function showSyncPrompt(buttonText) {
             const syncOverlay = document.getElementById('sync-overlay');
             const waitingText = document.getElementById('waiting-text');
             const syncBtn = document.getElementById('sync-btn');
@@ -391,7 +386,7 @@
                 syncBtn.innerText = "▶ Нажмите для старта и синхронизации";
             } else {
                 waitingText.style.display = 'none';
-                syncBtn.innerText = "🔄 Синхронизировать с новым потоком админа";
+                syncBtn.innerText = buttonText || "🔄 Синхронизировать с потоком";
             }
             syncBtn.style.display = 'block';
         }
@@ -399,15 +394,9 @@
         function handleViewerDisconnect() {
             adminConnection = null;
             if (!isAdmin && hasStartedStream) {
-                const syncOverlay = document.getElementById('sync-overlay');
-                const waitingText = document.getElementById('waiting-text');
-                const syncBtn = document.getElementById('sync-btn');
-                
-                syncOverlay.style.display = 'flex';
-                waitingText.style.display = 'block';
-                waitingText.innerText = "Потеряна связь с админом...";
-                syncBtn.style.display = 'block';
-                syncBtn.innerText = "🔄 Переподключиться";
+                showSyncPrompt("🔄 Переподключиться");
+                document.getElementById('waiting-text').style.display = 'block';
+                document.getElementById('waiting-text').innerText = "Потеряна связь с админом...";
             }
 
             if (!isAdmin && !reconnectTimer) {
@@ -447,8 +436,8 @@
                 currentPlaylistIndex = foundIdx;
                 renderPlaylist();
             }
+            activeStreamUrl = data.url;
 
-            // Главное исправление черного экрана: сравниваем точный URL. Если URL сменился или плеер пуст — грузим заново
             const isDifferentSource = !video.src || !video.src.includes(encodeURI(data.url).substring(0, 40)) && video.src !== data.url;
 
             if (data.type === 'change_movie' || isDifferentSource) {
@@ -484,10 +473,11 @@
                 updatePlayerControls();
                 adminBtn.classList.add('admin-active');
 
-                loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
-                    video.play().catch(() => {});
-                });
-                document.getElementById('sync-overlay').style.display = 'none';
+                // Админка открывается, но видео НЕ запускается автоматически (висит заглушка до выбора)
+                document.getElementById('sync-overlay').style.display = 'flex';
+                document.getElementById('waiting-text').style.display = 'block';
+                document.getElementById('waiting-text').innerText = "Stream Room";
+                document.getElementById('sync-btn').style.display = 'none';
 
                 startAsHost();
                 document.getElementById('admin-panel').style.display = 'flex';
@@ -511,6 +501,7 @@
             playlist.unshift({ title: "🔗 " + url.split('/').pop().substring(0, 30), url: url });
             currentPlaylistIndex = 0;
             renderPlaylist();
+            activeStreamUrl = url;
 
             loadVideo(url, 16, () => {
                 video.play().catch(() => {});
@@ -528,6 +519,7 @@
             playlist.unshift({ title: `📁 ${file.name}`, url: fileURL });
             currentPlaylistIndex = 0;
             renderPlaylist();
+            activeStreamUrl = fileURL;
 
             loadVideo(fileURL, 16, () => {
                 video.play().catch(() => {});
@@ -570,22 +562,24 @@
             video.removeAttribute('src');
             video.load();
 
-            if (url.endsWith('.m3u8') || url.includes('.m3u8')) {
-                if (video.canPlayType('application/vnd.apple.mpegurl')) {
+            setTimeout(() => {
+                if (url.endsWith('.m3u8') || url.includes('.m3u8')) {
+                    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                        video.src = url;
+                        setupStartTime(targetTime, callback);
+                    } else if (Hls.isSupported()) {
+                        currentHls = new Hls();
+                        currentHls.loadSource(url);
+                        currentHls.attachMedia(video);
+                        currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                            setupStartTime(targetTime, callback);
+                        });
+                    }
+                } else {
                     video.src = url;
                     setupStartTime(targetTime, callback);
-                } else if (Hls.isSupported()) {
-                    currentHls = new Hls();
-                    currentHls.loadSource(url);
-                    currentHls.attachMedia(video);
-                    currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        setupStartTime(targetTime, callback);
-                    });
                 }
-            } else {
-                video.src = url;
-                setupStartTime(targetTime, callback);
-            }
+            }, 50);
         }
 
         function setupStartTime(targetTime, callback) {
@@ -602,6 +596,7 @@
                 }
                 renderPlaylist();
                 const item = playlist[currentPlaylistIndex];
+                activeStreamUrl = item.url;
                 loadVideo(item.url, 16, () => {
                     video.play().catch(() => {});
                     broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
