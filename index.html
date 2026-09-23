@@ -116,24 +116,19 @@
 
     <script>
         const video = document.getElementById('videoElement');
-        let isAdmin = localStorage.getItem('is_stream_admin') === 'true'; // Проверяем, был ли этот браузер админом
+        let isAdmin = false;
         let peer;
         let viewers = []; 
         let adminConnection = null;
 
-        const ROOM_ID = "strmweb_live_room_sync_2026_v3"; 
+        const ROOM_ID = "strmweb_live_room_sync_2026_v4"; 
 
         function initP2P() {
-            if (isAdmin) {
-                // Если по памяти браузера мы админ — сразу занимаем роль хоста
-                becomeHost();
-            } else {
-                // Иначе заходим как обычный зритель
-                peer = new Peer();
-                peer.on('open', () => {
-                    connectToRoom();
-                });
-            }
+            peer = new Peer(); // Заходим со случайным ID для поиска комнаты
+
+            peer.on('open', () => {
+                connectToRoom();
+            });
         }
 
         function connectToRoom() {
@@ -142,7 +137,9 @@
             conn.on('open', () => {
                 isAdmin = false;
                 adminConnection = conn;
+                // Запрашиваем синхронизацию у уже существующего хоста
                 conn.send({ type: 'get_status' });
+                console.log("Подключено к комнате как зритель");
             });
 
             conn.on('data', (data) => {
@@ -153,6 +150,7 @@
                 becomeHost();
             });
 
+            // Если хост не ответил за 1.2 секунды, значит его нет — становимся хостом сами
             setTimeout(() => {
                 if (!isAdmin && !adminConnection) {
                     becomeHost();
@@ -163,26 +161,23 @@
         function becomeHost() {
             if (peer) peer.destroy();
             
-            // Создаем хост с фиксированным ID комнаты
+            // Создаем узел с главным ID комнаты
             peer = new Peer(ROOM_ID + "_host");
 
             peer.on('open', () => {
                 isAdmin = true;
-                localStorage.setItem('is_stream_admin', 'true');
-                console.log("Я главный хост (Админ)");
+                console.log("Я стал главным хостом (Админ)");
                 
-                // Автоматически показываем панель управления, если это твое устройство
-                if(localStorage.getItem('auto_open_panel') === 'true') {
+                // Если в этом браузере ранее уже вводился пароль админа, сразу открываем пульт
+                if (localStorage.getItem('is_stream_admin') === 'true') {
                     document.getElementById('admin-panel').style.display = 'flex';
                 }
             });
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    // Если ID еще занят старой сессией, сбрасываем статус и пробуем войти как зритель
-                    localStorage.removeItem('is_stream_admin');
-                    isAdmin = false;
-                    initP2P();
+                    // Если ID еще занят старой сессией браузера, пробуем переподключиться через секунду
+                    setTimeout(initP2P, 1000);
                 }
             });
 
@@ -208,30 +203,36 @@
 
         initP2P();
 
-        // Корректное закрытие соединения при уходе с сайта
+        // Корректное освобождение ID при закрытии вкладки
         window.addEventListener('beforeunload', () => {
             if (peer) peer.destroy();
         });
 
         function toggleAdminPanel() {
-            let pass = prompt("Введите код администратора:");
-            if (pass === "777") {
+            let savedAdmin = localStorage.getItem('is_stream_admin') === 'true';
+            
+            if (savedAdmin) {
+                // Если пароль уже вводился ранее в этом браузере, открываем сразу
                 isAdmin = true;
-                localStorage.setItem('is_stream_admin', 'true');
-                localStorage.setItem('auto_open_panel', 'true');
-                
-                // Если до этого были зрителем — переподключаемся как хост
-                if (peer) peer.destroy();
-                becomeHost();
-
+                if (peer && !isAdmin) { peer.destroy(); becomeHost(); }
                 document.getElementById('admin-panel').style.display = 'flex';
-            } else if (pass !== null) {
-                alert("Неверный пароль!");
+            } else {
+                let pass = prompt("Введите код администратора:");
+                if (pass === "777") {
+                    isAdmin = true;
+                    localStorage.setItem('is_stream_admin', 'true');
+                    
+                    if (peer) peer.destroy();
+                    becomeHost();
+
+                    document.getElementById('admin-panel').style.display = 'flex';
+                } else if (pass !== null) {
+                    alert("Неверный пароль!");
+                }
             }
         }
 
         function closeAdminPanel() {
-            localStorage.setItem('auto_open_panel', 'false');
             document.getElementById('admin-panel').style.display = 'none';
         }
 
