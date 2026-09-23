@@ -93,6 +93,10 @@
         </div>
 
         <!-- Кнопки управления (PiP и Админ) -->
+        .controls-group {
+            position: absolute; bottom: 8px; right: 8px;
+            z-index: 100; display: flex; gap: 4px;
+        }
         <div class="controls-group">
             <button class="ctrl-btn" onclick="togglePiP()" title="Картинка в картинке">📺</button>
             <button class="ctrl-btn" onclick="toggleAdminPanel()" title="Админ">⚙️</button>
@@ -129,10 +133,10 @@
         let isSyncing = false;
         let wakeLock = null;
         let syncInterval = null;
+        let hasReceivedInitialSync = false;
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
 
-        // Предотвращение засыпания экрана телефона в фоне (Wake Lock API)
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
                 try {
@@ -141,7 +145,6 @@
             }
         }
 
-        // Мгновенная проверка и подтяжка синхронизации при возвращении на вкладку
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 requestWakeLock();
@@ -154,7 +157,6 @@
             }
         });
 
-        // Защита от паузы при выходе из PiP
         video.addEventListener('leavepictureinpicture', () => {
             if (video.paused) {
                 video.play().catch(() => {});
@@ -168,9 +170,16 @@
         function initP2P() {
             updatePlayerControls();
             startAsViewer();
+            
+            // Если в течение 2 секунд хост не ответил, значит комната пустая — запускаем первое видео с 16 секунды
+            setTimeout(() => {
+                if (!hasReceivedInitialSync && !isAdmin) {
+                    loadVideo(document.getElementById('movieSelect').value, 16);
+                }
+            }, 2000);
         }
 
-        function startAsHost() {
+        function startAsHost(preserveCurrentState = false) {
             if (peer) peer.destroy();
             
             peer = new Peer(ROOM_ID + "_host");
@@ -184,7 +193,7 @@
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    setTimeout(startAsHost, 1000);
+                    setTimeout(() => startAsHost(preserveCurrentState), 1000);
                 }
             });
 
@@ -207,7 +216,6 @@
             });
         }
 
-        // Сверхбыстрый фоновый пинг от хоста каждую 1 секунду для моментальной синхронизации
         function startHostHeartbeat() {
             if (syncInterval) clearInterval(syncInterval);
             syncInterval = setInterval(() => {
@@ -282,7 +290,8 @@
             if (pass === "777") {
                 isAdmin = true;
                 updatePlayerControls();
-                startAsHost();
+                // Запускаем хост, сохраняя текущий момент времени и видео без перезагрузки
+                startAsHost(true);
                 document.getElementById('admin-panel').style.display = 'flex';
             } else if (pass !== null) {
                 alert("Неверный пароль!");
@@ -303,36 +312,37 @@
             } catch (err) {}
         }
 
-        function loadVideo(url, callback) {
+        function loadVideo(url, targetTime = 16, callback) {
             if (url.endsWith('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
-                    setupStartTime(callback);
+                    setupStartTime(targetTime, callback);
                 } else if (Hls.isSupported()) {
                     const hls = new Hls();
                     hls.loadSource(url);
                     hls.attachMedia(video);
                     hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                        setupStartTime(callback);
+                        setupStartTime(targetTime, callback);
                     });
                 }
             } else {
                 video.src = url;
-                setupStartTime(callback);
+                setupStartTime(targetTime, callback);
             }
         }
 
-        // Фиксация старта ровно на 16-й секунде
-        function setupStartTime(callback) {
+        function setupStartTime(targetTime, callback) {
             const setTimeOnce = () => {
-                if (video.currentTime < 1) {
-                    video.currentTime = 16;
+                if (video.currentTime < 1 || Math.abs(video.currentTime - targetTime) > 2) {
+                    video.currentTime = targetTime;
                 }
                 video.removeEventListener('loadedmetadata', setTimeOnce);
                 if (callback) callback();
             };
             if (video.readyState >= 1) {
-                if (video.currentTime < 1) video.currentTime = 16;
+                if (video.currentTime < 1 || Math.abs(video.currentTime - targetTime) > 2) {
+                    video.currentTime = targetTime;
+                }
                 if (callback) callback();
             } else {
                 video.addEventListener('loadedmetadata', setTimeOnce);
@@ -341,13 +351,12 @@
 
         function changeMovieAdmin() {
             const url = document.getElementById('movieSelect').value;
-            loadVideo(url, () => {
+            loadVideo(url, 16, () => {
                 video.play();
                 broadcastCommand({ type: 'change_movie', url: url, time: 16, paused: false });
             });
         }
 
-        // Автоматическое переключение на следующий пункт по окончании видео
         video.addEventListener('ended', () => {
             if (isAdmin) {
                 const select = document.getElementById('movieSelect');
@@ -378,6 +387,7 @@
         }
 
         function handleRemoteCommand(data) {
+            hasReceivedInitialSync = true;
             if (!isAdmin) {
                 isSyncing = true;
 
@@ -385,8 +395,7 @@
                     const currentUrl = document.getElementById('movieSelect').value;
                     if (currentUrl !== data.url) {
                         document.getElementById('movieSelect').value = data.url;
-                        loadVideo(data.url, () => {
-                            video.currentTime = data.time;
+                        loadVideo(data.url, data.time, () => {
                             if (!data.paused) {
                                 video.play().catch(() => {
                                     document.getElementById('sync-overlay').style.display = 'flex';
@@ -394,7 +403,6 @@
                             }
                         });
                     } else {
-                        // Жесткая коррекция при расхождении больше чем на 0.8 секунды
                         if (Math.abs(video.currentTime - data.time) > 0.8) {
                             video.currentTime = data.time;
                         }
@@ -420,7 +428,6 @@
             }
         }
 
-        // Перехват действий админа для трансляции зрителям
         video.addEventListener('seeking', () => {
             if (isAdmin && !isSyncing) broadcastCommand({ type: 'seek', time: video.currentTime });
         });
@@ -430,9 +437,6 @@
         video.addEventListener('pause', () => {
             if (isAdmin && !isSyncing) broadcastCommand({ type: 'pause', time: video.currentTime, paused: true });
         });
-
-        // Первичная инициализация плеера
-        loadVideo(document.getElementById('movieSelect').value);
     </script>
 </body>
 </html>
