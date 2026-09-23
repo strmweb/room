@@ -103,8 +103,8 @@
             <button class="admin-btn-action" onclick="closeAdminPanel()">Скрыть пульт</button>
         </div>
 
-        <!-- Видео плеер -->
-        <video id="videoElement" class="video-player" playsinline controls></video>
+        <!-- Видео плеер (у зрителей controls динамически отключаются, у админа включены) -->
+        <video id="videoElement" class="video-player" playsinline></video>
 
         <!-- Чат снизу -->
         <div class="chat-overlay">
@@ -122,10 +122,18 @@
         let adminConnection = null;
         let isSyncing = false;
 
-        const ROOM_ID = "strmweb_live_room_stable_2026_v7";
+        const ROOM_ID = "strmweb_live_room_stable_2026_v8";
+
+        function updateVideoControls() {
+            if (isAdmin) {
+                video.controls = true; // Админ может управлять плеером со своего экрана
+            } else {
+                video.controls = false; // Зрители не имеют доступа к элементам управления и перемотке
+            }
+        }
 
         function initP2P() {
-            // Если в этом браузере ранее включали админку, пробуем занять роль хоста сразу
+            updateVideoControls();
             if (isAdmin) {
                 startAsHost();
             } else {
@@ -141,16 +149,15 @@
             peer.on('open', () => {
                 isAdmin = true;
                 localStorage.setItem('is_stream_admin', 'true');
+                updateVideoControls();
                 console.log("Режим: Хост (Админ)");
             });
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    // Если хост уже занят старой сессией, пробуем подключиться как зритель
-                    console.log("Хост занят, подключаемся как зритель...");
-                    isAdmin = false;
-                    localStorage.removeItem('is_stream_admin');
-                    startAsViewer();
+                    // Если старый сеанс еще висит на сервере, пробуем принудительно переподключиться через 1 секунду
+                    console.log("Ожидание освобождения ID хоста...");
+                    setTimeout(startAsHost, 1000);
                 }
             });
 
@@ -158,7 +165,6 @@
                 viewers.push(incomingConn);
 
                 incomingConn.on('open', () => {
-                    // При новом подключении сразу шлем текущий статус (для опоздавших)
                     sendCurrentState(incomingConn);
                 });
 
@@ -189,8 +195,6 @@
 
             conn.on('open', () => {
                 adminConnection = conn;
-                console.log("Подключено к хосту");
-                // Запрашиваем актуальное состояние сразу при подключении (опоздавший зритель)
                 conn.send({ type: 'get_status' });
             });
 
@@ -217,16 +221,17 @@
 
         initP2P();
 
-        function sendCurrentState(targetConn) {
-            targetConn.send({
-                type: 'sync_state',
-                url: document.getElementById('movieSelect').value,
-                time: video.currentTime,
-                paused: video.paused
-            });
-        }
+        // Очистка при закрытии вкладки
+        window.addEventListener('beforeunload', () => {
+            if (peer) peer.destroy();
+        });
 
         function toggleAdminPanel() {
+            if (isAdmin) {
+                document.getElementById('admin-panel').style.display = 'flex';
+                return;
+            }
+
             let pass = prompt("Введите код администратора:");
             if (pass === "777") {
                 isAdmin = true;
@@ -242,10 +247,9 @@
             document.getElementById('admin-panel').style.display = 'none';
         }
 
-        // Если хост уже был сохранен в памяти, даем возможность открыть панель без пароля
         document.getElementById('admin-btn').addEventListener('click', (e) => {
             if (isAdmin) {
-                e.stopImmediatePropagation(); // Перехватываем стандартный клик если уже админ
+                e.stopImmediatePropagation();
                 document.getElementById('admin-panel').style.display = 'flex';
             }
         });
@@ -292,6 +296,15 @@
             video.play().catch(() => {});
         }
 
+        function sendCurrentState(targetConn) {
+            targetConn.send({
+                type: 'sync_state',
+                url: document.getElementById('movieSelect').value,
+                time: video.currentTime,
+                paused: video.paused
+            });
+        }
+
         function handleRemoteCommand(data) {
             if (!isAdmin) {
                 isSyncing = true;
@@ -309,7 +322,6 @@
                             }
                         });
                     } else {
-                        // Если видео то же самое, просто синхронизируем таймкод
                         if (Math.abs(video.currentTime - data.time) > 1.5) {
                             video.currentTime = data.time;
                         }
@@ -346,7 +358,7 @@
             if (isAdmin && !isSyncing) broadcastCommand({ type: 'pause', time: video.currentTime, paused: true });
         });
 
-        // Запуск плеера при открытии
+        // Первичная загрузка
         loadVideo(document.getElementById('movieSelect').value);
     </script>
 </body>
