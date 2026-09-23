@@ -90,7 +90,7 @@
         </div>
 
         <!-- Кнопка админа внизу -->
-        <button id="admin-btn" onclick="handleAdminButtonClick()">⚙️</button>
+        <button id="admin-btn" onclick="toggleAdminPanel()">⚙️</button>
 
         <!-- Пульт управления -->
         <div id="admin-panel">
@@ -116,29 +116,23 @@
 
     <script>
         const video = document.getElementById('videoElement');
-        let isAdmin = localStorage.getItem('is_stream_admin') === 'true';
+        let isAdmin = false; // Принудительно сбрасываем при каждом запуске
         let peer;
         let viewers = [];
         let adminConnection = null;
         let isSyncing = false;
 
-        const ROOM_ID = "strmweb_live_room_stable_2026_v9";
+        const ROOM_ID = "strmweb_live_room_stable_2026_v10";
 
-        function updateVideoControls() {
-            if (isAdmin) {
-                video.controls = true; // Админ может управлять плеером со своего экрана
-            } else {
-                video.controls = false; // Зрители не имеют доступа к элементам управления и перемотке
-            }
+        // Управление элементами видео: у админа есть панель/ползунки, у зрителей — нет (защита от перемотки)
+        function updatePlayerControls() {
+            video.controls = isAdmin;
         }
 
         function initP2P() {
-            updateVideoControls();
-            if (isAdmin) {
-                startAsHost();
-            } else {
-                startAsViewer();
-            }
+            updatePlayerControls();
+            // Все заходят как зрители, пока не введут пароль
+            startAsViewer();
         }
 
         function startAsHost() {
@@ -148,15 +142,13 @@
 
             peer.on('open', () => {
                 isAdmin = true;
-                localStorage.setItem('is_stream_admin', 'true');
-                updateVideoControls();
+                updatePlayerControls();
                 console.log("Режим: Хост (Админ)");
             });
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    console.log("ID хоста занят, пробуем переподключиться...");
-                    setTimeout(startAsHost, 1500);
+                    setTimeout(startAsHost, 1000);
                 }
             });
 
@@ -187,10 +179,6 @@
             peer.on('open', () => {
                 connectToHost();
             });
-
-            peer.on('error', () => {
-                retryConnection();
-            });
         }
 
         function connectToHost() {
@@ -219,13 +207,21 @@
                 if (!isAdmin) {
                     startAsViewer();
                 }
-            }, 3000);
+            }, 2000);
         }
 
         initP2P();
 
-        // Обработка нажатия на шестеренку (кнопку админа)
-        function handleAdminButtonClick() {
+        function sendCurrentState(targetConn) {
+            targetConn.send({
+                type: 'sync_state',
+                url: document.getElementById('movieSelect').value,
+                time: video.currentTime,
+                paused: video.paused
+            });
+        }
+
+        function toggleAdminPanel() {
             if (isAdmin) {
                 document.getElementById('admin-panel').style.display = 'flex';
                 return;
@@ -234,7 +230,7 @@
             let pass = prompt("Введите код администратора:");
             if (pass === "777") {
                 isAdmin = true;
-                localStorage.setItem('is_stream_admin', 'true');
+                updatePlayerControls();
                 startAsHost();
                 document.getElementById('admin-panel').style.display = 'flex';
             } else if (pass !== null) {
@@ -286,15 +282,6 @@
         function unlockPlayback() {
             document.getElementById('sync-overlay').style.display = 'none';
             video.play().catch(() => {});
-        }
-
-        function sendCurrentState(targetConn) {
-            targetConn.send({
-                type: 'sync_state',
-                url: document.getElementById('movieSelect').value,
-                time: video.currentTime,
-                paused: video.paused
-            });
         }
 
         function handleRemoteCommand(data) {
@@ -350,7 +337,7 @@
             if (isAdmin && !isSyncing) broadcastCommand({ type: 'pause', time: video.currentTime, paused: true });
         });
 
-        // Первичная загрузка видео
+        // Запуск плеера при открытии
         loadVideo(document.getElementById('movieSelect').value);
     </script>
 </body>
