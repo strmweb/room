@@ -71,7 +71,7 @@
             justify-content: center; align-items: center; flex-direction: column;
         }
         #waiting-text {
-            font-size: 26px; font-weight: 800; letter-spacing: 1px; color: #00ffcc;
+            font-size: 22px; font-weight: 800; letter-spacing: 1px; color: #00ffcc;
             text-transform: uppercase; text-shadow: 0 0 20px rgba(0,255,204,0.4);
             text-align: center; padding: 0 20px;
         }
@@ -128,8 +128,8 @@
 
     <div class="stream-container">
         <div id="sync-overlay">
-            <div id="waiting-text">Stream Room</div>
-            <div id="sync-btn" onclick="unlockPlayback()">▶ Нажмите для старта и синхронизации</div>
+            <div id="waiting-text">Ожидание начала трансляции...</div>
+            <div id="sync-btn" onclick="applySyncAndPlay()">▶ Подключиться к трансляции</div>
         </div>
 
         <video id="videoElement" class="video-player" playsinline autoplay></video>
@@ -183,7 +183,6 @@
         let wakeLock = null;
         let syncInterval = null;
         let reconnectTimer = null;
-        let hasStartedStream = false; 
         let latestAdminData = null;   
         let currentHls = null;
 
@@ -238,9 +237,7 @@
 
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
-                try {
-                    wakeLock = await navigator.wakeLock.request('screen');
-                } catch (err) {}
+                try { wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
             }
         }
 
@@ -263,9 +260,7 @@
         }
 
         function startAsHost() {
-            if (peer) {
-                try { peer.destroy(); } catch (e) {}
-            }
+            if (peer) { try { peer.destroy(); } catch (e) {} }
             
             peer = new Peer(ROOM_ID + "_host", peerConfig);
 
@@ -316,18 +311,18 @@
         }
 
         function sendCurrentState(targetConn) {
-            targetConn.send({
-                type: 'sync_state',
-                url: playlist[currentPlaylistIndex].url,
-                time: video.currentTime,
-                paused: video.paused
-            });
+            if (isAdmin) {
+                targetConn.send({
+                    type: 'sync_state',
+                    url: playlist[currentPlaylistIndex].url,
+                    time: video.currentTime,
+                    paused: video.paused
+                });
+            }
         }
 
         function startAsViewer() {
-            if (peer) {
-                try { peer.destroy(); } catch (e) {}
-            }
+            if (peer) { try { peer.destroy(); } catch (e) {} }
             peer = new Peer(peerConfig);
 
             peer.on('open', () => {
@@ -347,16 +342,6 @@
 
             conn.on('open', () => {
                 adminConnection = conn;
-                
-                if (!hasStartedStream) {
-                    document.getElementById('waiting-text').style.display = 'none';
-                    document.getElementById('sync-btn').style.display = 'block';
-                } else {
-                    const syncBtn = document.getElementById('sync-btn');
-                    syncBtn.style.display = 'block';
-                    syncBtn.innerText = "🔄 Синхронизировать с админом";
-                }
-
                 conn.send({ type: 'get_status' });
                 
                 if (reconnectTimer) {
@@ -367,25 +352,32 @@
 
             conn.on('data', (data) => {
                 latestAdminData = data;
-                handleRemoteCommand(data);
+                // Показываем кнопку синхронизации при любом новом действии/статусе от админа
+                const syncOverlay = document.getElementById('sync-overlay');
+                const waitingText = document.getElementById('waiting-text');
+                const syncBtn = document.getElementById('sync-btn');
+                
+                syncOverlay.style.display = 'flex';
+                waitingText.style.display = 'none';
+                syncBtn.style.display = 'block';
+                syncBtn.innerText = "▶ Синхронизировать с трансляцией админа";
             });
 
-            conn.on('error', () => {
-                handleViewerDisconnect();
-            });
-
-            conn.on('close', () => {
-                handleViewerDisconnect();
-            });
+            conn.on('error', () => { handleViewerDisconnect(); });
+            conn.on('close', () => { handleViewerDisconnect(); });
         }
 
         function handleViewerDisconnect() {
             adminConnection = null;
-            
-            if (!isAdmin && hasStartedStream) {
+            if (!isAdmin) {
+                const syncOverlay = document.getElementById('sync-overlay');
+                const waitingText = document.getElementById('waiting-text');
                 const syncBtn = document.getElementById('sync-btn');
-                syncBtn.style.display = 'block';
-                syncBtn.innerText = "🔄 Синхронизировать с админом";
+                
+                syncOverlay.style.display = 'flex';
+                waitingText.style.display = 'block';
+                waitingText.innerText = "Ожидание подключения к админу...";
+                syncBtn.style.display = 'none';
             }
 
             if (!isAdmin && !reconnectTimer) {
@@ -397,78 +389,48 @@
 
         initP2P();
 
-        function unlockPlayback() {
-            hasStartedStream = true;
+        function applySyncAndPlay() {
             document.getElementById('sync-overlay').style.display = 'none';
             video.muted = false;
             requestWakeLock();
 
             if (latestAdminData) {
+                isSyncing = true;
                 applyAdminData(latestAdminData);
+                setTimeout(() => { isSyncing = false; }, 300);
             } else if (adminConnection && adminConnection.open) {
                 adminConnection.send({ type: 'get_status' });
                 setTimeout(() => {
                     if (latestAdminData) {
+                        isSyncing = true;
                         applyAdminData(latestAdminData);
-                    } else {
-                        loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
-                            video.play().catch(() => {});
-                        });
+                        setTimeout(() => { isSyncing = false; }, 300);
                     }
-                }, 300);
-            } else {
-                loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
-                    video.play().catch(() => {});
-                });
-            }
-        }
-
-        function handleRemoteCommand(data) {
-            if (!isAdmin) {
-                if (!hasStartedStream) {
-                    document.getElementById('waiting-text').style.display = 'none';
-                    document.getElementById('sync-btn').style.display = 'block';
-                    return; 
-                }
-
-                isSyncing = true;
-                applyAdminData(data);
-                setTimeout(() => { isSyncing = false; }, 300);
+                }, 400);
             }
         }
 
         function applyAdminData(data) {
-            if (hasStartedStream) {
-                document.getElementById('sync-overlay').style.display = 'none';
+            let foundIdx = playlist.findIndex(p => p.url === data.url);
+            if (foundIdx !== -1) {
+                currentPlaylistIndex = foundIdx;
+                renderPlaylist();
             }
 
-            if (data.type === 'sync_state' || data.type === 'change_movie') {
-                const currentUrl = playlist[currentPlaylistIndex].url;
-                if (currentUrl !== data.url || !video.src) {
-                    let foundIdx = playlist.findIndex(p => p.url === data.url);
-                    if (foundIdx !== -1) {
-                        currentPlaylistIndex = foundIdx;
-                        renderPlaylist();
-                    }
-                    loadVideo(data.url, data.time, () => {
-                        if (!data.paused) video.play().catch(() => {});
-                    });
-                } else {
-                    if (Math.abs(video.currentTime - data.time) > 1.5) {
-                        video.currentTime = data.time;
-                    }
-                    if (data.paused) {
-                        video.pause();
-                    } else {
-                        video.play().catch(() => {});
-                    }
+            const currentUrl = video.src;
+            if (!currentUrl || !currentUrl.includes(data.url)) {
+                loadVideo(data.url, data.time, () => {
+                    if (!data.paused) video.play().catch(() => {});
+                });
+            } else {
+                if (Math.abs(video.currentTime - data.time) > 1.5) {
+                    video.currentTime = data.time;
                 }
-            } else if (data.type === 'seek') {
-                video.currentTime = data.time;
-            } else if (data.type === 'play') {
-                video.play().catch(() => {});
-            } else if (data.type === 'pause') {
-                video.pause();
+                if (data.paused) {
+                    video.pause();
+                } else {
+                    video.play().catch(() => {});
+                }
             }
         }
 
@@ -481,9 +443,7 @@
             let pass = prompt("Введите код администратора:");
             if (pass === "777") {
                 isAdmin = true;
-                hasStartedStream = true;
                 updatePlayerControls();
-                
                 adminBtn.classList.add('admin-active');
 
                 loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
@@ -629,10 +589,7 @@
         });
         video.addEventListener('pause', () => {
             if (isAdmin && !isSyncing) {
-                // Полностью игнорируем паузу, если админ свернул вкладку или ушел в фон
-                if (document.hidden || document.visibilityState === 'hidden') {
-                    return;
-                }
+                if (document.hidden || document.visibilityState === 'hidden') return;
                 broadcastCommand({ type: 'pause', time: video.currentTime, paused: true });
             }
         });
