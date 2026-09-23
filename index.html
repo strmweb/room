@@ -129,7 +129,7 @@
         let isSyncing = false;
         let wakeLock = null;
         let syncInterval = null;
-        let hasReceivedInitialSync = false;
+        let reconnectTimer = null;
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
 
@@ -165,7 +165,10 @@
 
         function initP2P() {
             updatePlayerControls();
-            startAsViewer();
+            // Первичный запуск видео локально, чтобы оно шло независимо
+            loadVideo(document.getElementById('movieSelect').value, 16, () => {
+                startAsViewer();
+            });
         }
 
         function startAsHost() {
@@ -182,7 +185,6 @@
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    // Если хост с таким ID еще занят или старый узел не успел освободиться, пробуем перехватить через секунду
                     setTimeout(startAsHost, 1000);
                 }
             });
@@ -222,7 +224,6 @@
 
         function startAsViewer() {
             if (peer) peer.destroy();
-
             peer = new Peer();
 
             peer.on('open', () => {
@@ -231,11 +232,17 @@
         }
 
         function connectToHost() {
+            if (isAdmin) return;
+
             const conn = peer.connect(ROOM_ID + "_host", { serialization: 'json' });
 
             conn.on('open', () => {
                 adminConnection = conn;
                 conn.send({ type: 'get_status' });
+                if (reconnectTimer) {
+                    clearInterval(reconnectTimer);
+                    reconnectTimer = null;
+                }
             });
 
             conn.on('data', (data) => {
@@ -243,20 +250,22 @@
             });
 
             conn.on('error', () => {
-                retryConnection();
+                handleDisconnect();
             });
 
             conn.on('close', () => {
-                retryConnection();
+                handleDisconnect();
             });
         }
 
-        function retryConnection() {
-            setTimeout(() => {
-                if (!isAdmin) {
-                    startAsViewer();
-                }
-            }, 2000);
+        function handleDisconnect() {
+            adminConnection = null;
+            // Фоновая попытка переподключения каждые 3 секунды (видео у зрителей при этом НЕ останавливается)
+            if (!isAdmin && !reconnectTimer) {
+                reconnectTimer = setInterval(() => {
+                    connectToHost();
+                }, 3000);
+            }
         }
 
         initP2P();
@@ -322,16 +331,14 @@
 
         function setupStartTime(targetTime, callback) {
             const setTimeOnce = () => {
-                if (video.currentTime < 1 || Math.abs(video.currentTime - targetTime) > 2) {
+                if (video.currentTime < 1) {
                     video.currentTime = targetTime;
                 }
                 video.removeEventListener('loadedmetadata', setTimeOnce);
                 if (callback) callback();
             };
             if (video.readyState >= 1) {
-                if (video.currentTime < 1 || Math.abs(video.currentTime - targetTime) > 2) {
-                    video.currentTime = targetTime;
-                }
+                if (video.currentTime < 1) video.currentTime = targetTime;
                 if (callback) callback();
             } else {
                 video.addEventListener('loadedmetadata', setTimeOnce);
@@ -376,7 +383,6 @@
         }
 
         function handleRemoteCommand(data) {
-            hasReceivedInitialSync = true;
             if (!isAdmin) {
                 isSyncing = true;
 
@@ -392,6 +398,7 @@
                             }
                         });
                     } else {
+                        // Жесткая коррекция рассинхрона (если разница больше 0.8 сек)
                         if (Math.abs(video.currentTime - data.time) > 0.8) {
                             video.currentTime = data.time;
                         }
