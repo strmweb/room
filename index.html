@@ -197,7 +197,7 @@
         let hasStartedStream = false; 
         let latestAdminData = null;   
 
-        const ROOM_ID = "strmweb_live_room_stable_2026_v10";
+        const ROOM_ID = "strmweb_live_room_stable_2026_v12";
 
         const peerConfig = {
             config: {
@@ -240,9 +240,9 @@
             currentPlaylistIndex = index;
             renderPlaylist();
             const item = playlist[index];
-            loadVideo(item.url, video.currentTime || 0, () => {
+            loadVideo(item.url, 16, () => {
                 video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: item.url, time: video.currentTime, paused: false });
+                broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
             });
         }
 
@@ -289,7 +289,6 @@
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    // Если старая сессия еще не отвалилась на сервере, пробуем переподключиться через секунду
                     setTimeout(startAsHost, 1500);
                 }
             });
@@ -424,13 +423,13 @@
                     if (latestAdminData) {
                         applyAdminData(latestAdminData);
                     } else {
-                        loadVideo(playlist[currentPlaylistIndex].url, video.currentTime || 0, () => {
+                        loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
                             video.play().catch(() => {});
                         });
                     }
                 }, 300);
             } else {
-                loadVideo(playlist[currentPlaylistIndex].url, video.currentTime || 0, () => {
+                loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
                     video.play().catch(() => {});
                 });
             }
@@ -500,7 +499,7 @@
                 
                 adminBtn.classList.add('admin-active');
 
-                loadVideo(playlist[currentPlaylistIndex].url, video.currentTime || 0, () => {
+                loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
                     video.play().catch(() => {});
                 });
                 document.getElementById('sync-overlay').style.display = 'none';
@@ -528,9 +527,9 @@
             currentPlaylistIndex = 0;
             renderPlaylist();
 
-            loadVideo(url, 0, () => {
+            loadVideo(url, 16, () => {
                 video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: url, time: 0, paused: false });
+                broadcastCommand({ type: 'change_movie', url: url, time: 16, paused: false });
             });
             urlInput.value = '';
             alert("Ссылка успешно запущена!");
@@ -545,9 +544,9 @@
             currentPlaylistIndex = 0;
             renderPlaylist();
 
-            loadVideo(fileURL, 0, () => {
+            loadVideo(fileURL, 16, () => {
                 video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: fileURL, time: 0, paused: false });
+                broadcastCommand({ type: 'change_movie', url: fileURL, time: 16, paused: false });
             });
         }
 
@@ -578,7 +577,7 @@
             } catch (err) {}
         }
 
-        function loadVideo(url, targetTime = 0, callback) {
+        function loadVideo(url, targetTime = 16, callback) {
             if (url.endsWith('.m3u8') || url.includes('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
@@ -599,14 +598,12 @@
 
         function setupStartTime(targetTime, callback) {
             const setTimeOnce = () => {
-                if (targetTime > 0 && video.currentTime < 1) {
-                    video.currentTime = targetTime;
-                }
+                video.currentTime = targetTime;
                 video.removeEventListener('loadedmetadata', setTimeOnce);
                 if (callback) callback();
             };
             if (video.readyState >= 1) {
-                if (targetTime > 0 && video.currentTime < 1) video.currentTime = targetTime;
+                video.currentTime = targetTime;
                 if (callback) callback();
             } else {
                 video.addEventListener('loadedmetadata', setTimeOnce);
@@ -622,9 +619,9 @@
                 }
                 renderPlaylist();
                 const item = playlist[currentPlaylistIndex];
-                loadVideo(item.url, 0, () => {
+                loadVideo(item.url, 16, () => {
                     video.play().catch(() => {});
-                    broadcastCommand({ type: 'change_movie', url: item.url, time: 0, paused: false });
+                    broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
                 });
             }
         });
