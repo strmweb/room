@@ -98,23 +98,15 @@
         #admin-panel {
             position: absolute; top: 0; left: 0; width: 100%; height: 67%;
             background: rgba(10, 10, 10, 0.95); z-index: 50;
-            display: none; flex-direction: column; padding: 15px; justify-content: center; gap: 8px;
-            overflow-y: auto;
+            display: none; flex-direction: column; padding: 20px; justify-content: center; gap: 12px;
         }
-        #admin-panel h3 { color: #00ffcc; font-size: 16px; text-align: center; margin-bottom: 2px; }
-        .admin-label { font-size: 11px; color: #aaa; }
-        .admin-select, .admin-textarea, .admin-btn-action {
-            width: 100%; padding: 8px 10px; background: #1a1a1a; color: #fff;
-            border: 1px solid #333; border-radius: 6px; font-size: 13px; outline: none;
+        #admin-panel h3 { color: #00ffcc; font-size: 18px; text-align: center; margin-bottom: 5px; }
+        .admin-label { font-size: 12px; color: #aaa; }
+        .admin-select, .admin-btn-action {
+            width: 100%; padding: 12px; background: #1a1a1a; color: #fff;
+            border: 1px solid #333; border-radius: 8px; font-size: 14px; outline: none;
         }
-        .admin-textarea { height: 60px; resize: none; font-family: monospace; font-size: 11px; }
-        .admin-file-label {
-            display: block; background: #222; border: 1px dashed #00ffcc; color: #00ffcc;
-            padding: 8px; text-align: center; border-radius: 6px; font-size: 12px; cursor: pointer;
-        }
-        .admin-file-label:hover { background: rgba(0,255,204,0.1); }
-        #localVideoInput { display: none; }
-        .admin-btn-action { background: #00ffcc; color: #000; font-weight: bold; cursor: pointer; margin-top: 4px; }
+        .admin-btn-action { background: #00ffcc; color: #000; font-weight: bold; cursor: pointer; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -135,7 +127,7 @@
                 <iframe src="https://www5.cbox.ws/box/?boxid=967024&boxtag=lVnQsO" allowtransparency="yes" allow="autoplay" frameborder="0"></iframe>
             </div>
             
-            <!-- Кнопки управления в углу под чатом -->
+            <!-- Кнопки управления (Fullscreen, PiP и Админ) аккуратно под чатом в углу -->
             <div class="controls-group">
                 <button class="ctrl-btn" onclick="toggleFullscreen()" title="На весь экран">
                     <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
@@ -152,30 +144,18 @@
         <!-- Пульт администратора -->
         <div id="admin-panel">
             <h3>Пульт трансляции</h3>
-            
-            <div class="admin-label">Выбор серии/фильма из списка:</div>
-            <select id="movieSelect" class="admin-select" onchange="changeMovieAdmin()"></select>
-
-            <div class="admin-label">Добавить ссылки (через запятую или в столбик):</div>
-            <textarea id="customUrlsInput" class="admin-textarea" placeholder="Вставьте ссылки сюда..."></textarea>
-            <button class="admin-btn-action" onclick="applyCustomUrls()">Обновить список из поля</button>
-
-            <div class="admin-label" style="margin-top: 4px;">Или загрузить видео с телефона/компьютера:</div>
-            <label class="admin-file-label">
-                📁 Выбрать локальный файл (.mp4)
-                <input type="file" id="localVideoInput" accept="video/mp4,video/*" onchange="playLocalVideo(event)">
-            </label>
-
-            <button class="admin-btn-action" onclick="closeAdminPanel()" style="background: #333; color: #fff; margin-top: 8px;">Скрыть пульт</button>
+            <div class="admin-label">Выбрать сериал / фильм:</div>
+            <select id="movieSelect" class="admin-select" onchange="changeMovieAdmin()">
+                <option value="https://o12.anwap.be/ohls/LpCRXyzOPrQYvMy9aA105w/1790123606/CHelovek-pauk_Novyj_denq-48515_(anwap.org).m3u8">Человек-паук: Новый день</option>
+                <option value="https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97_1_sezon_-_1_seriya_(anwap.org).m3u8">Люди Икс '97 (1 сезон 1 серия)</option>
+            </select>
+            <button class="admin-btn-action" onclick="closeAdminPanel()">Скрыть пульт</button>
         </div>
     </div>
 
     <script>
         const video = document.getElementById('videoElement');
         const adminBtn = document.getElementById('adminBtn');
-        const movieSelect = document.getElementById('movieSelect');
-        const customUrlsInput = document.getElementById('customUrlsInput');
-
         let isAdmin = false;
         let peer;
         let viewers = [];
@@ -188,67 +168,6 @@
         let latestAdminData = null;   
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
-
-        // Начальный список фильмов/серий (сюда можно легко дописывать новые через запятую)
-        let defaultPlaylists = [
-            { name: "Человек-паук: Новый день", url: "https://o12.anwap.be/ohls/LpCRXyzOPrQYvMy9aA105w/1790123606/CHelovek-pauk_Novyj_denq-48515_(anwap.org).m3u8" },
-            { name: "Люди Икс '97 (1 сезон - 1 серия)", url: "https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97_1_sezon_-_1_seriya_(anwap.org).m3u8" },
-            { name: "Люди Икс '97 (1 сезон - 2 серия)", url: "https://o8.anwap.be/serials/oshls/HNDDNVU5cxTE6glAC3mVmA/1790296490/Lyudi_Iks_97_1_sezon_-_2_seriya_(anwap.org).m3u8" }
-        ];
-
-        function populateSelect(list) {
-            movieSelect.innerHTML = "";
-            list.forEach((item, index) => {
-                let opt = document.createElement('option');
-                opt.value = item.url;
-                opt.textContent = item.name || `Видео #${index + 1}`;
-                movieSelect.appendChild(opt);
-            });
-            // Заполняем поле ввода на случай редактирования
-            customUrlsInput.value = list.map(i => i.url).join(',\n');
-        }
-
-        populateSelect(defaultPlaylists);
-
-        // Функция обработки добавления ссылок через запятую/столбик
-        function applyCustomUrls() {
-            let rawText = customUrlsInput.value.trim();
-            if (!rawText) return;
-
-            // Разделяем по запятым или переносам строк
-            let urls = rawText.split(/[\n,]+/).map(u => u.trim()).filter(u => u.length > 5);
-            
-            let newList = urls.map((url, idx) => {
-                let parts = url.split('/');
-                let fileName = decodeURIComponent(parts[parts.length - 1] || `Видео ${idx + 1}`);
-                return { name: fileName.replace(/_/g, ' '), url: url };
-            });
-
-            if (newList.length > 0) {
-                populateSelect(newList);
-                changeMovieAdmin();
-                alert(`Успешно добавлено видео: ${newList.length} шт.`);
-            }
-        }
-
-        // Запуск локального файла с устройства
-        function playLocalVideo(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const fileURL = URL.createObjectURL(file);
-
-            // Добавляем файл в выпадающий список как текущий
-            let opt = document.createElement('option');
-            opt.value = fileURL;
-            opt.textContent = `📁 ${file.name}`;
-            movieSelect.insertBefore(opt, movieSelect.firstChild);
-            movieSelect.selectedIndex = 0;
-
-            loadVideo(fileURL, 0, () => {
-                video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: fileURL, time: 0, paused: false });
-            });
-        }
 
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
@@ -329,7 +248,7 @@
                 if (isAdmin && !video.paused) {
                     broadcastCommand({
                         type: 'sync_state',
-                        url: movieSelect.value,
+                        url: document.getElementById('movieSelect').value,
                         time: video.currentTime,
                         paused: video.paused
                     });
@@ -340,7 +259,7 @@
         function sendCurrentState(targetConn) {
             targetConn.send({
                 type: 'sync_state',
-                url: movieSelect.value,
+                url: document.getElementById('movieSelect').value,
                 time: video.currentTime,
                 paused: video.paused
             });
@@ -399,6 +318,7 @@
         function handleViewerDisconnect() {
             adminConnection = null;
             
+            // Если админ закрыл вкладку/ушел, у зрителя поток идет дальше БЕЗ замираний
             if (!isAdmin && hasStartedStream) {
                 const syncBtn = document.getElementById('sync-btn');
                 syncBtn.style.display = 'block';
@@ -425,7 +345,7 @@
             } else if (adminConnection && adminConnection.open) {
                 adminConnection.send({ type: 'get_status' });
             } else {
-                loadVideo(movieSelect.value, 0, () => {
+                loadVideo(document.getElementById('movieSelect').value, 16, () => {
                     video.play().catch(() => {});
                 });
             }
@@ -447,9 +367,9 @@
 
         function applyAdminData(data) {
             if (data.type === 'sync_state' || data.type === 'change_movie') {
-                const currentUrl = movieSelect.value;
+                const currentUrl = document.getElementById('movieSelect').value;
                 if (currentUrl !== data.url) {
-                    movieSelect.value = data.url;
+                    document.getElementById('movieSelect').value = data.url;
                     loadVideo(data.url, data.time, () => {
                         if (!data.paused) video.play().catch(() => {});
                     });
@@ -487,7 +407,7 @@
                 
                 adminBtn.classList.add('admin-active');
 
-                loadVideo(movieSelect.value, 0, () => {
+                loadVideo(document.getElementById('movieSelect').value, 16, () => {
                     video.play().catch(() => {});
                 });
                 document.getElementById('sync-overlay').style.display = 'none';
@@ -534,11 +454,8 @@
             }
         }
 
-        function loadVideo(url, targetTime = 0, callback) {
-            if (url.startsWith('blob:') || url.endsWith('.mp4') || url.endsWith('.webm')) {
-                video.src = url;
-                setupStartTime(targetTime, callback);
-            } else if (url.endsWith('.m3u8')) {
+        function loadVideo(url, targetTime = 16, callback) {
+            if (url.endsWith('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
                     setupStartTime(targetTime, callback);
@@ -558,14 +475,14 @@
 
         function setupStartTime(targetTime, callback) {
             const setTimeOnce = () => {
-                if (video.currentTime < 1 && targetTime > 0) {
+                if (video.currentTime < 1) {
                     video.currentTime = targetTime;
                 }
                 video.removeEventListener('loadedmetadata', setTimeOnce);
                 if (callback) callback();
             };
             if (video.readyState >= 1) {
-                if (video.currentTime < 1 && targetTime > 0) video.currentTime = targetTime;
+                if (video.currentTime < 1) video.currentTime = targetTime;
                 if (callback) callback();
             } else {
                 video.addEventListener('loadedmetadata', setTimeOnce);
@@ -573,19 +490,20 @@
         }
 
         function changeMovieAdmin() {
-            const url = movieSelect.value;
-            loadVideo(url, 0, () => {
+            const url = document.getElementById('movieSelect').value;
+            loadVideo(url, 16, () => {
                 video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: url, time: 0, paused: false });
+                broadcastCommand({ type: 'change_movie', url: url, time: 16, paused: false });
             });
         }
 
         video.addEventListener('ended', () => {
             if (isAdmin) {
-                if (movieSelect.selectedIndex < movieSelect.options.length - 1) {
-                    movieSelect.selectedIndex++;
+                const select = document.getElementById('movieSelect');
+                if (select.selectedIndex < select.options.length - 1) {
+                    select.selectedIndex++;
                 } else {
-                    movieSelect.selectedIndex = 0;
+                    select.selectedIndex = 0;
                 }
                 changeMovieAdmin();
             }
