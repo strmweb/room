@@ -290,7 +290,6 @@
             startAsViewer();
         }
 
-        // Логика зрителя
         function startAsViewer() {
             if (peer) {
                 try { peer.destroy(); } catch(e) {}
@@ -313,10 +312,6 @@
 
             conn.on('open', () => {
                 adminConnection = conn;
-                if (!hasStartedStream) {
-                    document.getElementById('waiting-text').style.display = 'none';
-                    document.getElementById('sync-btn').style.display = 'block';
-                }
                 conn.send({ type: 'get_status' });
                 if (reconnectTimer) {
                     clearInterval(reconnectTimer);
@@ -326,6 +321,11 @@
 
             conn.on('data', (data) => {
                 latestAdminData = data;
+                // Как только получили данные от хоста, сразу показываем кнопку синхронизации
+                if (!hasStartedStream) {
+                    document.getElementById('waiting-text').style.display = 'none';
+                    document.getElementById('sync-btn').style.display = 'block';
+                }
                 handleRemoteCommand(data);
             });
 
@@ -351,12 +351,10 @@
             }
         }
 
-        // Логика хоста (админа)
         function startAsHost() {
             if (peer) {
                 try { peer.destroy(); } catch(e) {}
             }
-            // Создаем ультимативный фиксированный ID хоста для комнаты
             peer = new Peer(ROOM_ID + "_host", { debug: 0 });
 
             peer.on('open', () => {
@@ -368,7 +366,6 @@
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    // Если ID занят старой сессией, пробуем переподключиться
                     setTimeout(startAsHost, 1500);
                 }
             });
@@ -425,10 +422,20 @@
             bgAudio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
             bgAudio.play().catch(() => {});
 
+            // Сразу применяем то, что прислал админ, либо запрашиваем свежий статус
             if (latestAdminData) {
                 applyAdminData(latestAdminData);
             } else if (adminConnection && adminConnection.open) {
                 adminConnection.send({ type: 'get_status' });
+                setTimeout(() => {
+                    if (latestAdminData) {
+                        applyAdminData(latestAdminData);
+                    } else {
+                        loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
+                            video.play().catch(() => {});
+                        });
+                    }
+                }, 300);
             } else {
                 loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
                     video.play().catch(() => {});
@@ -437,12 +444,7 @@
         }
 
         function handleRemoteCommand(data) {
-            if (!isAdmin) {
-                if (!hasStartedStream) {
-                    document.getElementById('waiting-text').style.display = 'none';
-                    document.getElementById('sync-btn').style.display = 'block';
-                    return;
-                }
+            if (!isAdmin && hasStartedStream) {
                 isSyncing = true;
                 applyAdminData(data);
                 setTimeout(() => { isSyncing = false; }, 300);
@@ -452,7 +454,7 @@
         function applyAdminData(data) {
             if (data.type === 'sync_state' || data.type === 'change_movie') {
                 const currentUrl = playlist[currentPlaylistIndex].url;
-                if (currentUrl !== data.url) {
+                if (currentUrl !== data.url || !video.src) {
                     let foundIdx = playlist.findIndex(p => p.url === data.url);
                     if (foundIdx !== -1) {
                         currentPlaylistIndex = foundIdx;
