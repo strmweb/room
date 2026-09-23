@@ -120,11 +120,12 @@
         let peer;
         let viewers = []; 
         let adminConnection = null;
+        let isSyncing = false; // Защита от зацикливания событий плеера
 
-        const ROOM_ID = "strmweb_live_room_sync_2026_v4"; 
+        const ROOM_ID = "strmweb_live_room_sync_2026_v5"; 
 
         function initP2P() {
-            peer = new Peer(); // Заходим со случайным ID для поиска комнаты
+            peer = new Peer();
 
             peer.on('open', () => {
                 connectToRoom();
@@ -137,7 +138,7 @@
             conn.on('open', () => {
                 isAdmin = false;
                 adminConnection = conn;
-                // Запрашиваем синхронизацию у уже существующего хоста
+                // Запрашиваем актуальное состояние у хоста при входе (даже если зашел позже)
                 conn.send({ type: 'get_status' });
                 console.log("Подключено к комнате как зритель");
             });
@@ -150,7 +151,7 @@
                 becomeHost();
             });
 
-            // Если хост не ответил за 1.2 секунды, значит его нет — становимся хостом сами
+            // Если хост не отвечает, сами становимся хостом
             setTimeout(() => {
                 if (!isAdmin && !adminConnection) {
                     becomeHost();
@@ -161,14 +162,12 @@
         function becomeHost() {
             if (peer) peer.destroy();
             
-            // Создаем узел с главным ID комнаты
             peer = new Peer(ROOM_ID + "_host");
 
             peer.on('open', () => {
                 isAdmin = true;
                 console.log("Я стал главным хостом (Админ)");
                 
-                // Если в этом браузере ранее уже вводился пароль админа, сразу открываем пульт
                 if (localStorage.getItem('is_stream_admin') === 'true') {
                     document.getElementById('admin-panel').style.display = 'flex';
                 }
@@ -176,7 +175,6 @@
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    // Если ID еще занят старой сессией браузера, пробуем переподключиться через секунду
                     setTimeout(initP2P, 1000);
                 }
             });
@@ -186,6 +184,7 @@
                 
                 incomingConn.on('data', (data) => {
                     if (data.type === 'get_status') {
+                        // Отправляем зрителю текущее видео и таймкод при позднем входе
                         incomingConn.send({
                             type: 'sync_state',
                             url: document.getElementById('movieSelect').value,
@@ -203,7 +202,6 @@
 
         initP2P();
 
-        // Корректное освобождение ID при закрытии вкладки
         window.addEventListener('beforeunload', () => {
             if (peer) peer.destroy();
         });
@@ -212,7 +210,6 @@
             let savedAdmin = localStorage.getItem('is_stream_admin') === 'true';
             
             if (savedAdmin) {
-                // Если пароль уже вводился ранее в этом браузере, открываем сразу
                 isAdmin = true;
                 if (peer && !isAdmin) { peer.destroy(); becomeHost(); }
                 document.getElementById('admin-panel').style.display = 'flex';
@@ -236,25 +233,31 @@
             document.getElementById('admin-panel').style.display = 'none';
         }
 
-        function loadVideo(url) {
+        function loadVideo(url, callback) {
             if (url.endsWith('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
+                    if (callback) callback();
                 } else if (Hls.isSupported()) {
                     const hls = new Hls();
                     hls.loadSource(url);
                     hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        if (callback) callback();
+                    });
                 }
             } else {
                 video.src = url;
+                if (callback) callback();
             }
         }
 
         function changeMovieAdmin() {
             const url = document.getElementById('movieSelect').value;
-            loadVideo(url);
-            video.play();
-            broadcastCommand({ type: 'change_movie', url: url, time: 0 });
+            loadVideo(url, () => {
+                video.play();
+                broadcastCommand({ type: 'change_movie', url: url, time: 0 });
+            });
         }
 
         function broadcastCommand(data) {
@@ -274,45 +277,46 @@
 
         function handleRemoteCommand(data) {
             if (!isAdmin) {
-                if (data.type === 'sync_state') {
+                isSyncing = true; // Блокируем отправку эха обратно
+                
+                if (data.type === 'sync_state' || data.type === 'change_movie') {
                     document.getElementById('movieSelect').value = data.url;
-                    loadVideo(data.url);
-                    video.currentTime = data.time;
-                    if (!data.paused) {
-                        video.play().catch(() => {
-                            document.getElementById('sync-overlay').style.display = 'flex';
-                        });
-                    }
-                } else if (data.type === 'change_movie') {
-                    document.getElementById('movieSelect').value = data.url;
-                    loadVideo(data.url);
-                    video.currentTime = data.time;
-                    video.play().catch(() => {
-                        document.getElementById('sync-overlay').style.display = 'flex';
+                    loadVideo(data.url, () => {
+                        video.currentTime = data.time;
+                        if (!data.paused) {
+                            video.play().catch(() => {
+                                document.getElementById('sync-overlay').style.display = 'flex';
+                            });
+                        }
+                        setTimeout(() => { isSyncing = false; }, 500);
                     });
                 } else if (data.type === 'seek') {
                     video.currentTime = data.time;
+                    setTimeout(() => { isSyncing = false; }, 300);
                 } else if (data.type === 'play') {
                     video.play().catch(() => {
                         document.getElementById('sync-overlay').style.display = 'flex';
                     });
+                    setTimeout(() => { isSyncing = false; }, 300);
                 } else if (data.type === 'pause') {
                     video.pause();
+                    setTimeout(() => { isSyncing = false; }, 300);
                 }
             }
         }
 
-        // Перехват действий админа
+        // Перехват действий админа с защитой от флуда
         video.addEventListener('seeking', () => {
-            if (isAdmin) broadcastCommand({ type: 'seek', time: video.currentTime });
+            if (isAdmin && !isSyncing) broadcastCommand({ type: 'seek', time: video.currentTime });
         });
         video.addEventListener('play', () => {
-            if (isAdmin) broadcastCommand({ type: 'play', time: video.currentTime });
+            if (isAdmin && !isSyncing) broadcastCommand({ type: 'play', time: video.currentTime });
         });
         video.addEventListener('pause', () => {
-            if (isAdmin) broadcastCommand({ type: 'pause', time: video.currentTime });
+            if (isAdmin && !isSyncing) broadcastCommand({ type: 'pause', time: video.currentTime });
         });
 
+        // Первичная загрузка для хоста
         loadVideo(document.getElementById('movieSelect').value);
     </script>
 </body>
