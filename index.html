@@ -196,8 +196,9 @@
         let reconnectTimer = null;
         let hasStartedStream = false; 
         let latestAdminData = null;   
+        let currentHls = null;
 
-        const ROOM_ID = "strmweb_live_room_stable_2026_v12";
+        const ROOM_ID = "strmweb_live_room_stable_2026_v15";
 
         const peerConfig = {
             config: {
@@ -254,6 +255,7 @@
             }
         }
 
+        // Абсолютно пустой обработчик фоновых изменений для админа, чтобы поток у него и зрителей никогда не стопался
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 requestWakeLock();
@@ -578,15 +580,20 @@
         }
 
         function loadVideo(url, targetTime = 16, callback) {
+            if (currentHls) {
+                currentHls.destroy();
+                currentHls = null;
+            }
+
             if (url.endsWith('.m3u8') || url.includes('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
                     setupStartTime(targetTime, callback);
                 } else if (Hls.isSupported()) {
-                    const hls = new Hls();
-                    hls.loadSource(url);
-                    hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    currentHls = new Hls();
+                    currentHls.loadSource(url);
+                    currentHls.attachMedia(video);
+                    currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
                         setupStartTime(targetTime, callback);
                     });
                 }
