@@ -45,7 +45,7 @@
         .chat-box iframe { width: 100%; height: 100%; border: none; background: transparent; }
 
         .controls-group {
-            position: absolute; bottom: 2px; right: 54px;
+            position: absolute; bottom: 2px; right: 74px;
             z-index: 100; display: flex; gap: 4px; height: 24px; align-items: center;
         }
         .ctrl-btn {
@@ -186,10 +186,15 @@
         let hasStartedStream = false;
         let latestAdminData = null;   
         let currentHls = null;
+        let pauseDebounceTimer = null;
 
-        const ROOM_ID = "strmweb_live_room_stable_2026_v21";
+        const ROOM_ID = "strmweb_live_room_stable_2026_v23";
 
         const peerConfig = {
+            host: '0.peerjs.com',
+            port: 443,
+            path: '/',
+            secure: true,
             config: {
                 'iceServers': [
                     { urls: 'stun:stun.l.google.com:19302' },
@@ -304,6 +309,7 @@
 
         function startHostHeartbeat() {
             if (syncInterval) clearInterval(syncInterval);
+            // Увеличили интервал пинга до 1.5 сек для снижения нагрузки на сеть и стабильности потока
             syncInterval = setInterval(() => {
                 if (isAdmin && !video.paused && activeStreamUrl) {
                     broadcastCommand({
@@ -313,7 +319,7 @@
                         paused: video.paused
                     });
                 }
-            }, 1000);
+            }, 1500);
         }
 
         function sendCurrentState(targetConn) {
@@ -331,13 +337,22 @@
             if (peer) { try { peer.destroy(); } catch (e) {} }
             peer = new Peer(peerConfig);
 
+            let connectionResolved = false;
+
             peer.on('open', () => {
+                connectionResolved = true;
                 connectToHost();
             });
 
             peer.on('error', () => {
                 handleViewerDisconnect();
             });
+
+            setTimeout(() => {
+                if (!connectionResolved && !hasStartedStream) {
+                    showSyncPrompt("▶ Нажмите для старта");
+                }
+            }, 2500);
         }
 
         function connectToHost() {
@@ -359,24 +374,29 @@
             conn.on('data', (data) => {
                 latestAdminData = data;
 
-                // Автоматическая синхронизация при перемотке (seek) или тике (sync_state) без показа кнопки
-                if (data.type === 'sync_state' || data.type === 'seek') {
+                if (data.type === 'sync_state' || data.type === 'seek' || data.type === 'pause' || data.type === 'play') {
                     if (hasStartedStream && activeStreamUrl === data.url) {
                         isSyncing = true;
-                        if (Math.abs(video.currentTime - data.time) > 1.5) {
+                        
+                        // Увеличенный порог допуска рассинхрона (2.5 сек) предотвращает дергания зрителей из-за мелких лагов админа
+                        if (Math.abs(video.currentTime - data.time) > 2.5) {
                             video.currentTime = data.time;
                         }
-                        if (data.type === 'seek') {
-                            if (data.paused) video.pause();
-                            else video.play().catch(() => {});
+                        
+                        if (data.paused) {
+                            video.pause();
+                        } else {
+                            video.play().catch(() => {});
                         }
+
                         setTimeout(() => { isSyncing = false; }, 300);
                         return;
                     }
                 }
 
-                // Единая кнопка нужна только при смене фильма или потере связи
-                showSyncPrompt(data.type === 'change_movie' ? "🔄 Переключиться на поток админа" : "▶ Синхронизировать");
+                if (data.type === 'change_movie') {
+                    showSyncPrompt("🔄 Переключиться на поток админа");
+                }
             });
 
             conn.on('error', () => { handleViewerDisconnect(); });
@@ -392,10 +412,11 @@
             if (!hasStartedStream) {
                 waitingText.style.display = 'block';
                 waitingText.innerText = "Stream Room";
-                syncBtn.innerText = "▶ Нажмите для старта";
+                syncBtn.innerText = buttonText || "▶ Нажмите для старта";
             } else {
                 waitingText.style.display = 'none';
-                syncBtn.innerText = buttonText || "🔄 Синхронизировать";
+                syncBtn.innerText = buttonText || "🔄 Обновить страницу";
+                syncBtn.onclick = () => location.reload();
             }
             syncBtn.style.display = 'block';
         }
@@ -403,15 +424,21 @@
         function handleViewerDisconnect() {
             adminConnection = null;
             if (!isAdmin && hasStartedStream) {
-                showSyncPrompt("🔄 Переподключиться");
-                document.getElementById('waiting-text').style.display = 'block';
-                document.getElementById('waiting-text').innerText = "Потеряна связь с админом...";
+                const syncOverlay = document.getElementById('sync-overlay');
+                const waitingText = document.getElementById('waiting-text');
+                const syncBtn = document.getElementById('sync-btn');
+
+                syncOverlay.style.display = 'flex';
+                waitingText.style.display = 'none';
+                syncBtn.innerText = "🔄 Обновить страницу";
+                syncBtn.style.display = 'block';
+                syncBtn.onclick = () => location.reload();
             }
 
             if (!isAdmin && !reconnectTimer) {
                 reconnectTimer = setInterval(() => {
                     connectToHost();
-                }, 3000);
+                }, 4000);
             }
         }
 
@@ -436,6 +463,12 @@
                         setTimeout(() => { isSyncing = false; }, 300);
                     }
                 }, 400);
+            } else {
+                const item = playlist[currentPlaylistIndex];
+                activeStreamUrl = item.url;
+                loadVideo(item.url, 16, () => {
+                    video.play().catch(() => {});
+                });
             }
         }
 
@@ -458,7 +491,7 @@
                     }
                 });
             } else {
-                if (Math.abs(video.currentTime - data.time) > 1.5) {
+                if (Math.abs(video.currentTime - data.time) > 2.5) {
                     video.currentTime = data.time;
                 }
                 if (data.paused) {
@@ -572,9 +605,34 @@
                         video.src = url;
                         setupStartTime(targetTime, callback);
                     } else if (Hls.isSupported()) {
-                        currentHls = new Hls();
+                        // Оптимизированный конфиг HLS для максимальной стабильности потока
+                        currentHls = new Hls({
+                            maxBufferLength: 60,
+                            maxMaxBufferLength: 120,
+                            liveSyncDurationCount: 3,
+                            fragLoadingTimeOut: 20000,
+                            manifestLoadingTimeOut: 20000
+                        });
                         currentHls.loadSource(url);
                         currentHls.attachMedia(video);
+                        
+                        // Автоматическое восстановление потока при сетевых ошибках у зрителей или админа
+                        currentHls.on(Hls.Events.ERROR, function(event, data) {
+                            if (data.fatal) {
+                                switch(data.type) {
+                                    case Hls.ErrorTypes.NETWORK_ERROR:
+                                        currentHls.startLoad();
+                                        break;
+                                    case Hls.ErrorTypes.MEDIA_ERROR:
+                                        currentHls.recoverMediaError();
+                                        break;
+                                    default:
+                                        currentHls.destroy();
+                                        break;
+                                }
+                            }
+                        });
+
                         currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
                             setupStartTime(targetTime, callback);
                         });
@@ -621,13 +679,25 @@
         video.addEventListener('seeking', () => {
             if (isAdmin && !isSyncing) broadcastCommand({ type: 'seek', time: video.currentTime, paused: video.paused });
         });
+        
         video.addEventListener('play', () => {
-            if (isAdmin && !isSyncing) broadcastCommand({ type: 'play', time: video.currentTime, paused: false });
+            if (isAdmin && !isSyncing) {
+                if (pauseDebounceTimer) clearTimeout(pauseDebounceTimer);
+                broadcastCommand({ type: 'play', time: video.currentTime, paused: false });
+            }
         });
+        
+        // Защита от случайных микро-фризов у админа: пауза отправляется зрителям только если она длится больше 400мс
         video.addEventListener('pause', () => {
             if (isAdmin && !isSyncing) {
                 if (document.hidden || document.visibilityState === 'hidden') return;
-                broadcastCommand({ type: 'pause', time: video.currentTime, paused: true });
+                
+                if (pauseDebounceTimer) clearTimeout(pauseDebounceTimer);
+                pauseDebounceTimer = setTimeout(() => {
+                    if (video.paused) {
+                        broadcastCommand({ type: 'pause', time: video.currentTime, paused: true });
+                    }
+                }, 400);
             }
         });
     </script>
