@@ -25,7 +25,7 @@
         }
         @media (min-width: 481px) {
             .stream-container {
-                height: 95vh; max-height: 900px;
+                max-width: 900px; width: 95vw; height: 95vh; max-height: 95vh;
                 border-radius: 24px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
             }
         }
@@ -41,12 +41,12 @@
             display: flex; flex-direction: column; justify-content: flex-end;
             z-index: 10;
         }
-        .chat-box { width: 100%; height: calc(100% - 26px); overflow: hidden; background: transparent; }
+        .chat-box { width: 100%; height: calc(100% - 32px); overflow: hidden; background: transparent; }
         .chat-box iframe { width: 100%; height: 100%; border: none; background: transparent; }
 
-        /* Компактные кнопки управления в самом низу под чатом в углу */
+        /* Подняли кнопки выше, чтобы они не уходили за экран */
         .controls-group {
-            position: absolute; bottom: 2px; right: 8px;
+            position: absolute; bottom: 8px; right: 8px;
             z-index: 100; display: flex; gap: 4px; height: 24px; align-items: center;
         }
         .ctrl-btn {
@@ -56,12 +56,9 @@
             display: flex; align-items: center; justify-content: center;
             transition: all 0.2s ease;
         }
-        .ctrl-btn svg {
-            width: 11px; height: 11px; fill: currentColor;
-        }
+        .ctrl-btn svg { width: 11px; height: 11px; fill: currentColor; }
         .ctrl-btn:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
 
-        /* Зеленая подсветка шестеренки для админа */
         .ctrl-btn.admin-active {
             color: #00ffcc;
             border-color: rgba(0, 255, 204, 0.4);
@@ -69,7 +66,6 @@
             box-shadow: 0 0 8px rgba(0, 255, 204, 0.3);
         }
 
-        /* Экран ожидания (Stream Room) и кнопка синхронизации */
         #sync-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 67%;
             background: #000000; z-index: 40; display: flex;
@@ -94,40 +90,42 @@
             100% { transform: scale(1); }
         }
 
-        /* Панель администратора */
         #admin-panel {
             position: absolute; top: 0; left: 0; width: 100%; height: 67%;
             background: rgba(10, 10, 10, 0.95); z-index: 50;
-            display: none; flex-direction: column; padding: 20px; justify-content: center; gap: 12px;
+            display: none; flex-direction: column; padding: 20px; justify-content: center; gap: 10px;
+            overflow-y: auto;
         }
-        #admin-panel h3 { color: #00ffcc; font-size: 18px; text-align: center; margin-bottom: 5px; }
+        #admin-panel h3 { color: #00ffcc; font-size: 18px; text-align: center; margin-bottom: 2px; }
         .admin-label { font-size: 12px; color: #aaa; }
-        .admin-select, .admin-btn-action {
-            width: 100%; padding: 12px; background: #1a1a1a; color: #fff;
-            border: 1px solid #333; border-radius: 8px; font-size: 14px; outline: none;
+        .admin-select, .admin-input, .admin-btn-action {
+            width: 100%; padding: 10px; background: #1a1a1a; color: #fff;
+            border: 1px solid #333; border-radius: 8px; font-size: 13px; outline: none;
         }
-        .admin-btn-action { background: #00ffcc; color: #000; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        .admin-file-label {
+            display: block; background: #1a1a1a; border: 1px dashed #00ffcc; color: #00ffcc;
+            padding: 10px; text-align: center; border-radius: 8px; font-size: 13px; cursor: pointer;
+        }
+        .admin-file-label:hover { background: rgba(0,255,204,0.1); }
+        #localVideoInput { display: none; }
+        .admin-btn-action { background: #00ffcc; color: #000; font-weight: bold; cursor: pointer; margin-top: 4px; }
     </style>
 </head>
 <body>
 
     <div class="stream-container">
-        <!-- Экран ожидания: Stream Room -->
         <div id="sync-overlay">
             <div id="waiting-text">Stream Room</div>
             <div id="sync-btn" onclick="unlockPlayback()">▶ Нажмите для старта и синхронизации</div>
         </div>
 
-        <!-- Видео плеер -->
         <video id="videoElement" class="video-player" playsinline autoplay></video>
 
-        <!-- Чат снизу -->
         <div class="chat-overlay">
             <div class="chat-box">
                 <iframe src="https://www5.cbox.ws/box/?boxid=967024&boxtag=lVnQsO" allowtransparency="yes" allow="autoplay" frameborder="0"></iframe>
             </div>
             
-            <!-- Кнопки управления (Fullscreen, PiP и Админ) аккуратно под чатом в углу -->
             <div class="controls-group">
                 <button class="ctrl-btn" onclick="toggleFullscreen()" title="На весь экран">
                     <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
@@ -141,36 +139,33 @@
             </div>
         </div>
 
-        <!-- Пульт администратора -->
         <div id="admin-panel">
             <h3>Пульт трансляции</h3>
             <div class="admin-label">Выбрать сериал / фильм:</div>
             <select id="movieSelect" class="admin-select" onchange="changeMovieAdmin()">
                 <option value="https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97_1_sezon_-_1_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 1 серия)</option>
                 <option value="https://o8.anwap.be/serials/oshls/HNDDNVU5cxTE6glAC3mVmA/1790296490/Lyudi_Iks_97_1_sezon_-_2_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 2 серия)</option>
-<option value="https://o8.anwap.be/serials/oshls/-zWD4d_xVTn6P9WXHDW5IQ/1790300984/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 3 серия) </option>
+                <option value="https://o8.anwap.be/serials/oshls/-zWD4d_xVTn6P9WXHDW5IQ/1790300984/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 3 серия)</option>
                 <option value="https://o8.anwap.be/serials/oshls/rPxMUpcEI6I7KIdwnLWbkQ/1790301060/Lyudi_Iks_97_1_sezon_-_4_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 4 серия)</option>
-<option value="https://o8.anwap.be/serials/oshls/WtJF55Cpr376S6NYdQ3Y7A/1790301120/Lyudi_Iks_97_1_sezon_-_5_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 5 серия)</option>
+                <option value="https://o8.anwap.be/serials/oshls/WtJF55Cpr376S6NYdQ3Y7A/1790301120/Lyudi_Iks_97_1_sezon_-_5_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 5 серия)</option>
                 <option value="https://o8.anwap.be/serials/oshls/r-wkm0TdDdy5MtdEYdYmIw/1790301196/Lyudi_Iks_97_1_sezon_-_6_seriya_(anwap.org).m3u8">Люди Икс '97 (1 сезон 6 серия)</option>
-<option value="https://o8.anwap.be/serials/oshls/OD8a3jgGnH8dX3bXg4kXpg/1790301247/Lyudi_Iks_97_1_sezon_-_7_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 7 серия) </option>
-                <option value="https://o8.anwap.be/serials/oshls/IRj6rVZMFQlgGuOs-cGTWg/1790301283/Lyudi_Iks_97_1_sezon_-_8_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 8 серия)</option>
-<option value="https://o9.anwap.be/serials/oshls/Mk3yOj0cscTRY0uIkvId3Q/1790301313/Lyudi_Iks_97_1_sezon_-_9_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 9 серия)</option>
-                <option value="https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97_1_sezon_-_10_seriya_(anwap.org).m3u8">Люди Икс '97 (1 сезон 10 серия)</option>
-
-
-
-
-
-
-
-
-
-
-
-
-
+                <option value="https://o8.anwap.be/serials/oshls/OD8a3jgGnH8dX3bXg4kXpg/1790301247/Lyudi_Iks_97_1_sezon_-_7_seriya_(anwap.org).m3u8">Люди Икс 97 (1 сезон 7 серия)</option>
+                <option value="https://o8.anwap.be/serials/oshls/IRj6rVZMFQlgGuOs-cGTWg/1790301283/Люди Икс 97 (1 сезон 8 серия)</option>
+                <option value="https://o9.anwap.be/serials/oshls/Mk3yOj0cscTRY0uIkvId3Q/1790301313/Люди Икс 97 (1 сезон 9 серия)</option>
+                <option value="https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Люди Икс '97 (1 сезон 10 серия)</option>
             </select>
-            <button class="admin-btn-action" onclick="closeAdminPanel()">Скрыть пульт</button>
+
+            <div class="admin-label">Или вставить ссылку вручную:</div>
+            <input type="text" id="customUrlInput" class="admin-input" placeholder="https://..." value="">
+            <button class="admin-btn-action" onclick="playCustomUrl()">Воспроизвести ссылку</button>
+
+            <div class="admin-label" style="margin-top: 4px;">Или загрузить файл с устройства:</div>
+            <label class="admin-file-label">
+                📁 Выбрать видеофайл (.mp4)
+                <input type="file" id="localVideoInput" accept="video/mp4,video/*" onchange="playLocalVideo(event)">
+            </label>
+
+            <button class="admin-btn-action" onclick="closeAdminPanel()" style="background: #333; color: #fff; margin-top: 6px;">Скрыть пульт</button>
         </div>
     </div>
 
@@ -185,8 +180,8 @@
         let wakeLock = null;
         let syncInterval = null;
         let reconnectTimer = null;
-        let hasStartedStream = false; 
-        let latestAdminData = null;   
+        let hasStartedStream = false;
+        let latestAdminData = null;
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
 
@@ -225,7 +220,6 @@
             startAsViewer();
         }
 
-        // --- ЛОГИКА АДМИНА (ХОСТА) ---
         function startAsHost() {
             if (peer) peer.destroy();
             
@@ -286,7 +280,6 @@
             });
         }
 
-        // --- ЛОГИКА ЗРИТЕЛЯ ---
         function startAsViewer() {
             if (peer) peer.destroy();
             peer = new Peer({ debug: 0 });
@@ -339,7 +332,6 @@
         function handleViewerDisconnect() {
             adminConnection = null;
             
-            // Если админ закрыл вкладку/ушел, у зрителя поток идет дальше БЕЗ замираний
             if (!isAdmin && hasStartedStream) {
                 const syncBtn = document.getElementById('sync-btn');
                 syncBtn.style.display = 'block';
@@ -377,7 +369,7 @@
                 if (!hasStartedStream) {
                     document.getElementById('waiting-text').style.display = 'none';
                     document.getElementById('sync-btn').style.display = 'block';
-                    return; 
+                    return;
                 }
 
                 isSyncing = true;
@@ -413,7 +405,6 @@
             }
         }
 
-        // --- УПРАВЛЕНИЕ АДМИНОМ ---
         function toggleAdminPanel() {
             if (isAdmin) {
                 document.getElementById('admin-panel').style.display = 'flex';
@@ -444,7 +435,47 @@
             document.getElementById('admin-panel').style.display = 'none';
         }
 
-        // --- УПРАВЛЕНИЕ РЕЖИМАМИ (PiP и Fullscreen строго для видео) ---
+        function playCustomUrl() {
+            const urlInput = document.getElementById('customUrlInput');
+            const url = urlInput.value.trim();
+            if (!url) {
+                alert("Введите ссылку на видео!");
+                return;
+            }
+
+            const select = document.getElementById('movieSelect');
+            let opt = document.createElement('option');
+            opt.value = url;
+            opt.textContent = "🔗 Ручная ссылка: " + url.split('/').pop().substring(0, 25);
+            select.insertBefore(opt, select.firstChild);
+            select.selectedIndex = 0;
+
+            // Теперь ручные ссылки запускаются с 16 секунды точно так же, как и остальные потоки
+            loadVideo(url, 16, () => {
+                video.play().catch(() => {});
+                broadcastCommand({ type: 'change_movie', url: url, time: 16, paused: false });
+            });
+            alert("Ссылка запущена!");
+        }
+
+        function playLocalVideo(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const fileURL = URL.createObjectURL(file);
+
+            const select = document.getElementById('movieSelect');
+            let opt = document.createElement('option');
+            opt.value = fileURL;
+            opt.textContent = `📁 ${file.name}`;
+            select.insertBefore(opt, select.firstChild);
+            select.selectedIndex = 0;
+
+            loadVideo(fileURL, 16, () => {
+                video.play().catch(() => {});
+                broadcastCommand({ type: 'change_movie', url: fileURL, time: 16, paused: false });
+            });
+        }
+
         async function togglePiP() {
             try {
                 if (document.pictureInPictureElement) {
@@ -462,7 +493,7 @@
                 if (!document.fullscreenElement) {
                     if (video.requestFullscreen) {
                         video.requestFullscreen();
-                    } else if (video.webkitEnterFullscreen) { // Для iOS Safari
+                    } else if (video.webkitEnterFullscreen) {
                         video.webkitEnterFullscreen();
                     }
                 } else {
@@ -476,7 +507,8 @@
         }
 
         function loadVideo(url, targetTime = 16, callback) {
-            if (url.endsWith('.m3u8')) {
+            // Поддержка различных форматов и потоков (mp4, m3u8, веб-потоки)
+            if (url.includes('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
                     setupStartTime(targetTime, callback);
@@ -487,6 +519,9 @@
                     hls.on(Hls.Events.MANIFEST_PARSED, () => {
                         setupStartTime(targetTime, callback);
                     });
+                } else {
+                    video.src = url;
+                    setupStartTime(targetTime, callback);
                 }
             } else {
                 video.src = url;
