@@ -129,7 +129,7 @@
     <div class="stream-container">
         <div id="sync-overlay">
             <div id="waiting-text">Stream Room</div>
-            <div id="sync-btn" onclick="applySyncAndPlay()">▶ Нажмите для старта и синхронизации</div>
+            <div id="sync-btn" onclick="applySyncAndPlay()">Включить стрим</div>
         </div>
 
         <video id="videoElement" class="video-player" playsinline autoplay></video>
@@ -155,7 +155,7 @@
         <div id="admin-panel">
             <h3>Пульт трансляции</h3>
             
-            <div class="admin-label">Плейлист (Люди Икс '97):</div>
+            <div class="admin-label">Плейлист</div>
             <div id="playlistContainer" class="playlist-container"></div>
 
             <div class="admin-label">Или вставить ссылку (.m3u8 / mp4):</div>
@@ -208,16 +208,16 @@
         };
 
         let playlist = [
-            { title: "Люди Икс '97 (1 сезон 1 серия)", url: "https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97_1_sezon_-_1_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс '97 (1 сезон 2 серия)", url: "https://o8.anwap.be/serials/oshls/HNDDNVU5cxTE6glAC3mVmA/1790296490/Lyudi_Iks_97_1_sezon_-_2_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс '97 (1 сезон 3 серия)", url: "https://o8.anwap.be/serials/oshls/-zWD4d_xVTn6P9WXHDW5IQ/1790300984/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс '97 (1 сезон 4 серия)", url: "https://o8.anwap.be/serials/oshls/rPxMUpcEI6I7KIdwnLWbkQ/1790301060/Lyudi_Iks_97_1_sezon_-_4_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс '97 (1 сезон 5 серия)", url: "https://o8.anwap.be/serials/oshls/WtJF55Cpr376S6NYdQ3Y7A/1790301120/Lyudi_Iks_97_1_sezon_-_5_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс '97 (1 сезон 6 серия)", url: "https://o8.anwap.be/serials/oshls/r-wkm0TdDdy5MtdEYdYmIw/1790301196/Lyudi_Iks_97_1_sezon_-_6_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс '97 (1 сезон 7 серия)", url: "https://o8.anwap.be/serials/oshls/OD8a3jgGnH8dX3bXg4kXpg/1790301247/Lyudi_Iks_97_1_sezon_-_7_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс '97 (1 сезон 8 серия)", url: "https://o8.anwap.be/serials/oshls/IRj6rVZMFQlgGuOs-cGTWg/1790301283/Lyudi_Iks_97_1_sezon_-_8_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс '97 (1 сезон 9 серия)", url: "https://o9.anwap.be/serials/oshls/Mk3yOj0cscTRY0uIkvId3Q/1790301313/Lyudi_Iks_97_1_sezon_-_9_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс '97 (1 сезон 10 серия)", url: "https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97_1_sezon_-_10_seriya_(anwap.org).m3u8" }
+            { title: "Люди Икс 97 (1 сезон 1 серия)", url: "https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97_1_sezon_-_1_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 2 серия)", url: "https://o8.anwap.be/serials/oshls/HNDDNVU5cxTE6glAC3mVmA/1790296490/Lyudi_Iks_97_1_sezon_-_2_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 3 серия)", url: "https://o8.anwap.be/serials/oshls/-zWD4d_xVTn6P9WXHDW5IQ/1790300984/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 4 серия)", url: "https://o8.anwap.be/serials/oshls/rPxMUpcEI6I7KIdwnLWbkQ/1790301060/Lyudi_Iks_97_1_sezon_-_4_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 5 серия)", url: "https://o8.anwap.be/serials/oshls/WtJF55Cpr376S6NYdQ3Y7A/1790301120/Lyudi_Iks_97_1_sezon_-_5_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 6 серия)", url: "https://o8.anwap.be/serials/oshls/r-wkm0TdDdy5MtdEYdYmIw/1790301196/Lyudi_Iks_97_1_sezon_-_6_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 7 серия)", url: "https://o8.anwap.be/serials/oshls/OD8a3jgGnH8dX3bXg4kXpg/1790301247/Lyudi_Iks_97_1_sezon_-_7_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 8 серия)", url: "https://o8.anwap.be/serials/oshls/IRj6rVZMFQlgGuOs-cGTWg/1790301283/Lyudi_Iks_97_1_sezon_-_8_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 9 серия)", url: "https://o9.anwap.be/serials/oshls/Mk3yOj0cscTRY0uIkvId3Q/1790301313/Lyudi_Iks_97_1_sezon_-_9_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс 97 (1 сезон 10 серия)", url: "https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97_1_sezon_-_10_seriya_(anwap.org).m3u8" }
         ];
         let currentPlaylistIndex = 0;
         let activeStreamUrl = null;
@@ -350,7 +350,7 @@
 
             setTimeout(() => {
                 if (!connectionResolved && !hasStartedStream) {
-                    showSyncPrompt("▶ Нажмите для старта");
+                    showSyncPrompt("Включить стрим");
                 }
             }, 2500);
         }
@@ -395,7 +395,7 @@
                 }
 
                 if (data.type === 'change_movie') {
-                    showSyncPrompt("🔄 Переключиться на поток админа");
+                    showSyncPrompt("Обновить стрим");
                 }
             });
 
@@ -412,10 +412,10 @@
             if (!hasStartedStream) {
                 waitingText.style.display = 'block';
                 waitingText.innerText = "Stream Room";
-                syncBtn.innerText = buttonText || "▶ Нажмите для старта";
+                syncBtn.innerText = buttonText || "Включить стрим";
             } else {
                 waitingText.style.display = 'none';
-                syncBtn.innerText = buttonText || "🔄 Обновить страницу";
+                syncBtn.innerText = buttonText || "Обновить стрим";
                 syncBtn.onclick = () => location.reload();
             }
             syncBtn.style.display = 'block';
@@ -430,7 +430,7 @@
 
                 syncOverlay.style.display = 'flex';
                 waitingText.style.display = 'none';
-                syncBtn.innerText = "🔄 Обновить страницу";
+                syncBtn.innerText = "Обновить стрим";
                 syncBtn.style.display = 'block';
                 syncBtn.onclick = () => location.reload();
             }
