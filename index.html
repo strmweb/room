@@ -71,7 +71,7 @@
             justify-content: center; align-items: center; flex-direction: column;
         }
         #waiting-text {
-            font-size: 22px; font-weight: 800; letter-spacing: 1px; color: #00ffcc;
+            font-size: 26px; font-weight: 800; letter-spacing: 1px; color: #00ffcc;
             text-transform: uppercase; text-shadow: 0 0 20px rgba(0,255,204,0.4);
             text-align: center; padding: 0 20px;
         }
@@ -128,8 +128,8 @@
 
     <div class="stream-container">
         <div id="sync-overlay">
-            <div id="waiting-text">Ожидание начала трансляции...</div>
-            <div id="sync-btn" onclick="applySyncAndPlay()">▶ Подключиться к трансляции</div>
+            <div id="waiting-text">Stream Room</div>
+            <div id="sync-btn" onclick="applySyncAndPlay()">▶ Нажмите для старта и синхронизации</div>
         </div>
 
         <video id="videoElement" class="video-player" playsinline autoplay></video>
@@ -183,6 +183,7 @@
         let wakeLock = null;
         let syncInterval = null;
         let reconnectTimer = null;
+        let hasStartedStream = false;
         let latestAdminData = null;   
         let currentHls = null;
 
@@ -313,7 +314,7 @@
         function sendCurrentState(targetConn) {
             if (isAdmin) {
                 targetConn.send({
-                    type: 'sync_state',
+                    type: 'change_movie',
                     url: playlist[currentPlaylistIndex].url,
                     time: video.currentTime,
                     paused: video.paused
@@ -352,15 +353,14 @@
 
             conn.on('data', (data) => {
                 latestAdminData = data;
-                // Показываем кнопку синхронизации при любом новом действии/статусе от админа
-                const syncOverlay = document.getElementById('sync-overlay');
-                const waitingText = document.getElementById('waiting-text');
+                // Показываем кнопку синхронизации только когда админ реально прислал сигнал/сменил видео/перезашел
+                if (!hasStartedStream) {
+                    document.getElementById('waiting-text').style.display = 'none';
+                }
                 const syncBtn = document.getElementById('sync-btn');
-                
-                syncOverlay.style.display = 'flex';
-                waitingText.style.display = 'none';
+                document.getElementById('sync-overlay').style.display = 'flex';
                 syncBtn.style.display = 'block';
-                syncBtn.innerText = "▶ Синхронизировать с трансляцией админа";
+                syncBtn.innerText = "▶ Нажмите для старта и синхронизации";
             });
 
             conn.on('error', () => { handleViewerDisconnect(); });
@@ -369,15 +369,11 @@
 
         function handleViewerDisconnect() {
             adminConnection = null;
-            if (!isAdmin) {
-                const syncOverlay = document.getElementById('sync-overlay');
-                const waitingText = document.getElementById('waiting-text');
+            if (!isAdmin && hasStartedStream) {
                 const syncBtn = document.getElementById('sync-btn');
-                
-                syncOverlay.style.display = 'flex';
-                waitingText.style.display = 'block';
-                waitingText.innerText = "Ожидание подключения к админу...";
-                syncBtn.style.display = 'none';
+                document.getElementById('sync-overlay').style.display = 'flex';
+                syncBtn.style.display = 'block';
+                syncBtn.innerText = "🔄 Переподключиться к админу";
             }
 
             if (!isAdmin && !reconnectTimer) {
@@ -390,6 +386,7 @@
         initP2P();
 
         function applySyncAndPlay() {
+            hasStartedStream = true;
             document.getElementById('sync-overlay').style.display = 'none';
             video.muted = false;
             requestWakeLock();
@@ -417,10 +414,14 @@
                 renderPlaylist();
             }
 
-            const currentUrl = video.src;
-            if (!currentUrl || !currentUrl.includes(data.url)) {
+            // Если это смена серии/фильма или у зрителя еще не загружен этот URL — загружаем заново без черного экрана
+            if (data.type === 'change_movie' || !video.src || !video.src.includes(data.url.substring(0, 30))) {
                 loadVideo(data.url, data.time, () => {
-                    if (!data.paused) video.play().catch(() => {});
+                    if (!data.paused) {
+                        video.play().catch(() => {});
+                    } else {
+                        video.pause();
+                    }
                 });
             } else {
                 if (Math.abs(video.currentTime - data.time) > 1.5) {
@@ -443,6 +444,7 @@
             let pass = prompt("Введите код администратора:");
             if (pass === "777") {
                 isAdmin = true;
+                hasStartedStream = true;
                 updatePlayerControls();
                 adminBtn.classList.add('admin-active');
 
