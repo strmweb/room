@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Stream Room</title>
     <!-- Библиотека HLS.js для m3u8 видеопотоков -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -32,15 +32,16 @@
         }
         .video-player {
             position: absolute; top: 0; left: 0;
-            width: 100%; height: 67%; 
+            width: 100%; height: 62%; 
             object-fit: contain; background: #000;
         }
         .chat-overlay {
             position: absolute; bottom: 0; left: 0;
-            width: 100%; height: 33%; 
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.5) 75%, transparent 100%);
+            width: 100%; height: 38%; 
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.98) 0%, rgba(0, 0, 0, 0.8) 80%, transparent 100%);
             display: flex; flex-direction: column; justify-content: flex-end;
             z-index: 10;
+            padding-bottom: env(safe-area-inset-bottom, 0px);
         }
         .chat-box { width: 100%; height: calc(100% - 32px); overflow: hidden; background: transparent; }
         .chat-box iframe { width: 100%; height: 100%; border: none; background: transparent; }
@@ -67,7 +68,7 @@
         }
 
         #sync-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 67%;
+            position: absolute; top: 0; left: 0; width: 100%; height: 62%;
             background: #000000; z-index: 40; display: flex;
             justify-content: center; align-items: center; flex-direction: column;
         }
@@ -90,9 +91,9 @@
             100% { transform: scale(1); }
         }
 
-        /* Админ-панель по центру */
+        /* Админ-панель */
         #admin-panel {
-            position: absolute; top: 0; left: 0; width: 100%; height: 67%;
+            position: absolute; top: 0; left: 0; width: 100%; height: 62%;
             background: rgba(10, 10, 10, 0.98); z-index: 50;
             display: none; flex-direction: column; padding: 12px; 
             justify-content: center; align-items: center; gap: 8px;
@@ -104,9 +105,8 @@
         #admin-panel h3 { color: #00ffcc; font-size: 16px; text-align: center; margin-bottom: 2px; }
         .admin-label { font-size: 11px; color: #ccc; }
         
-        /* Исправленный скроллинг и читаемый текст с переносом */
         .playlist-container {
-            width: 100%; max-height: 180px; background: #141414;
+            width: 100%; max-height: 160px; background: #141414;
             border: 1px solid #444; border-radius: 8px; overflow-y: auto;
             display: flex; flex-direction: column; gap: 4px; padding: 6px;
         }
@@ -140,6 +140,8 @@
         </div>
 
         <video id="videoElement" class="video-player" playsinline autoplay></video>
+        <!-- Аудио для удержания фона -->
+        <audio id="bgAudio" loop style="display:none;"></audio>
 
         <div class="chat-overlay">
             <div class="chat-box">
@@ -162,7 +164,7 @@
         <div id="admin-panel">
             <div class="admin-panel-content">
                 <h3>Пульт трансляции</h3>
-                <div class="admin-label">Плейлист (прокрутка любых 100+ ссылок):</div>
+                <div class="admin-label">Плейлист:</div>
                 <div id="playlistContainer" class="playlist-container"></div>
 
                 <div class="admin-label">Или вставить ссылку вручную:</div>
@@ -182,6 +184,7 @@
 
     <script>
         const video = document.getElementById('videoElement');
+        const bgAudio = document.getElementById('bgAudio');
         const adminBtn = document.getElementById('adminBtn');
         let isAdmin = false;
         let peer;
@@ -193,6 +196,8 @@
         let reconnectTimer = null;
         let hasStartedStream = false;
         let latestAdminData = null;
+        let hlsInstance = null;
+        let freezeCheckTimer = null;
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
 
@@ -254,11 +259,31 @@
             }
         });
 
-        video.addEventListener('leavepictureinpicture', () => {
-            if (video.paused && hasStartedStream) {
-                video.play().catch(() => {});
-            }
-        });
+        // Защита от зависания картинки (если время идет, а кадры замерли)
+        function initFreezeProtection() {
+            if (freezeCheckTimer) clearInterval(freezeCheckTimer);
+            let lastTime = -1;
+            let freezeCount = 0;
+
+            freezeCheckTimer = setInterval(() => {
+                if (!video.paused && hasStartedStream) {
+                    if (video.currentTime === lastTime) {
+                        freezeCount++;
+                        if (freezeCount >= 3) { // 3 секунды нет продвижения кадров
+                            console.log("Обнаружено зависание видеопотока, восстанавливаем...");
+                            let t = video.currentTime;
+                            video.currentTime = t + 0.1;
+                            video.play().catch(() => {});
+                            freezeCount = 0;
+                        }
+                    } else {
+                        freezeCount = 0;
+                        lastTime = video.currentTime;
+                    }
+                }
+            }, 1000);
+        }
+        initFreezeProtection();
 
         function updatePlayerControls() {
             video.controls = isAdmin;
@@ -391,6 +416,10 @@
             video.muted = false;
             requestWakeLock();
 
+            // Запуск фонового аудио для удержания потока в фоне
+            bgAudio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
+            bgAudio.play().catch(() => {});
+
             if (latestAdminData) {
                 applyAdminData(latestAdminData);
             } else if (adminConnection && adminConnection.open) {
@@ -516,9 +545,7 @@
                 } else if (document.pictureInPictureEnabled && video) {
                     await video.requestPictureInPicture();
                 }
-            } catch (err) {
-                console.log("PiP error:", err);
-            }
+            } catch (err) {}
         }
 
         function toggleFullscreen() {
@@ -534,21 +561,24 @@
                         document.exitFullscreen();
                     }
                 }
-            } catch (err) {
-                console.log("Fullscreen error:", err);
-            }
+            } catch (err) {}
         }
 
         function loadVideo(url, targetTime = 16, callback) {
+            if (hlsInstance) {
+                hlsInstance.destroy();
+                hlsInstance = null;
+            }
+
             if (url.includes('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
                     setupStartTime(targetTime, callback);
                 } else if (Hls.isSupported()) {
-                    const hls = new Hls();
-                    hls.loadSource(url);
-                    hls.attachMedia(video);
-                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    hlsInstance = new Hls();
+                    hlsInstance.loadSource(url);
+                    hlsInstance.attachMedia(video);
+                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
                         setupStartTime(targetTime, callback);
                     });
                 } else {
