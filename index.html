@@ -199,7 +199,6 @@
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
 
-        // Настройки PeerJS с публичными STUN-серверами для гарантированной связи по всему миру
         const peerConfig = {
             config: {
                 'iceServers': [
@@ -255,21 +254,14 @@
             }
         }
 
+        // Убран принудительный запуск паузы при сворачивании у админа. 
+        // Поток и у админа, и у зрителей теперь продолжается независимо от фонового режима вкладки.
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 requestWakeLock();
-                if (video.paused && hasStartedStream) {
-                    video.play().catch(() => {});
-                }
                 if (!isAdmin && (!adminConnection || !adminConnection.open)) {
                     connectToHost();
                 }
-            }
-        });
-
-        video.addEventListener('leavepictureinpicture', () => {
-            if (video.paused && hasStartedStream) {
-                video.play().catch(() => {});
             }
         });
 
@@ -369,6 +361,11 @@
                 if (!hasStartedStream) {
                     document.getElementById('waiting-text').style.display = 'none';
                     document.getElementById('sync-btn').style.display = 'block';
+                } else {
+                    // Если зритель уже смотрел, но админ переподключился — показываем кнопку синхронизации для удобства
+                    const syncBtn = document.getElementById('sync-btn');
+                    syncBtn.style.display = 'block';
+                    syncBtn.innerText = "🔄 Синхронизировать с админом";
                 }
 
                 conn.send({ type: 'get_status' });
@@ -452,6 +449,11 @@
         }
 
         function applyAdminData(data) {
+            // При успешном получении свежих данных от админа скрываем кнопку синхронизации, если она висела
+            if (hasStartedStream) {
+                document.getElementById('sync-overlay').style.display = 'none';
+            }
+
             if (data.type === 'sync_state' || data.type === 'change_movie') {
                 const currentUrl = playlist[currentPlaylistIndex].url;
                 if (currentUrl !== data.url || !video.src) {
