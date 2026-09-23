@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Stream Room</title>
     <!-- Библиотека HLS.js для m3u8 видеопотоков -->
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
@@ -12,42 +12,41 @@
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body, html {
             width: 100%; height: 100%;
-            background-color: #000; color: #ffffff;
+            background-color: #0b0b0b; color: #ffffff;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             display: flex; justify-content: center; align-items: center;
             overflow: hidden;
         }
         .stream-container {
-            position: relative; width: 100vw; height: 100vh;
-            max-width: 100vw; max-height: 100vh;
+            position: relative; width: 100%; height: 100%;
+            max-width: 480px; max-height: 100vh;
             background: #000; overflow: hidden;
             display: flex; flex-direction: column;
-            border-radius: 0; box-shadow: none;
         }
         @media (min-width: 481px) {
             .stream-container {
-                max-width: 900px; width: 95vw; height: 95vh; max-height: 95vh;
+                height: 95vh; max-height: 900px;
                 border-radius: 24px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
             }
         }
         .video-player {
             position: absolute; top: 0; left: 0;
-            width: 100%; height: 62%; 
+            width: 100%; height: 67%; 
             object-fit: contain; background: #000;
         }
         .chat-overlay {
             position: absolute; bottom: 0; left: 0;
-            width: 100%; height: 38%; 
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.98) 0%, rgba(0, 0, 0, 0.8) 80%, transparent 100%);
+            width: 100%; height: 33%; 
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.95) 0%, rgba(0, 0, 0, 0.5) 75%, transparent 100%);
             display: flex; flex-direction: column; justify-content: flex-end;
             z-index: 10;
-            padding-bottom: env(safe-area-inset-bottom, 0px);
         }
-        .chat-box { width: 100%; height: calc(100% - 32px); overflow: hidden; background: transparent; }
+        .chat-box { width: 100%; height: calc(100% - 26px); overflow: hidden; background: transparent; }
         .chat-box iframe { width: 100%; height: 100%; border: none; background: transparent; }
 
+        /* Компактные кнопки управления в самом низу под чатом в углу */
         .controls-group {
-            position: absolute; bottom: 8px; right: 8px;
+            position: absolute; bottom: 2px; right: 8px;
             z-index: 100; display: flex; gap: 4px; height: 24px; align-items: center;
         }
         .ctrl-btn {
@@ -57,9 +56,12 @@
             display: flex; align-items: center; justify-content: center;
             transition: all 0.2s ease;
         }
-        .ctrl-btn svg { width: 11px; height: 11px; fill: currentColor; }
+        .ctrl-btn svg {
+            width: 11px; height: 11px; fill: currentColor;
+        }
         .ctrl-btn:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
 
+        /* Зеленая подсветка шестеренки для админа */
         .ctrl-btn.admin-active {
             color: #00ffcc;
             border-color: rgba(0, 255, 204, 0.4);
@@ -67,8 +69,9 @@
             box-shadow: 0 0 8px rgba(0, 255, 204, 0.3);
         }
 
+        /* Экран ожидания (Stream Room) и кнопка синхронизации */
         #sync-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 62%;
+            position: absolute; top: 0; left: 0; width: 100%; height: 67%;
             background: #000000; z-index: 40; display: flex;
             justify-content: center; align-items: center; flex-direction: column;
         }
@@ -91,39 +94,36 @@
             100% { transform: scale(1); }
         }
 
+        /* Панель администратора */
         #admin-panel {
-            position: absolute; top: 0; left: 0; width: 100%; height: 62%;
+            position: absolute; top: 0; left: 0; width: 100%; height: 67%;
             background: rgba(10, 10, 10, 0.98); z-index: 50;
-            display: none; flex-direction: column; padding: 12px; 
-            justify-content: center; align-items: center; gap: 8px;
+            display: none; flex-direction: column; padding: 16px; justify-content: center; gap: 8px;
             overflow-y: auto;
         }
-        .admin-panel-content {
-            width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 8px;
-        }
         #admin-panel h3 { color: #00ffcc; font-size: 16px; text-align: center; margin-bottom: 2px; }
-        .admin-label { font-size: 11px; color: #ccc; }
+        .admin-label { font-size: 11px; color: #aaa; }
         
         .playlist-container {
-            width: 100%; max-height: 160px; background: #141414;
-            border: 1px solid #444; border-radius: 8px; overflow-y: auto;
+            width: 100%; max-height: 140px; background: #141414;
+            border: 1px solid #333; border-radius: 8px; overflow-y: auto;
             display: flex; flex-direction: column; gap: 4px; padding: 6px;
         }
         .playlist-item {
-            padding: 10px 14px; background: #1f1f1f; color: #ffffff; font-size: 13px; font-weight: 500;
+            padding: 8px 10px; background: #1f1f1f; color: #ffffff; font-size: 12px;
             border-radius: 6px; cursor: pointer; transition: background 0.2s;
-            text-align: center; white-space: normal; word-break: break-word; line-height: 1.3;
+            text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
         .playlist-item:hover { background: #2c2c2c; }
-        .playlist-item.active { background: rgba(0, 255, 204, 0.25); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.5); font-weight: 600; }
+        .playlist-item.active { background: rgba(0, 255, 204, 0.25); color: #00ffcc; border: 1px solid rgba(0, 255, 204, 0.4); font-weight: 600; }
 
         .admin-input, .admin-btn-action {
-            width: 100%; padding: 10px 12px; background: #1a1a1a; color: #fff;
-            border: 1px solid #444; border-radius: 8px; font-size: 13px; outline: none; text-align: center;
+            width: 100%; padding: 10px; background: #1a1a1a; color: #fff;
+            border: 1px solid #333; border-radius: 8px; font-size: 13px; outline: none;
         }
         .admin-file-label {
             display: block; background: #1a1a1a; border: 1px dashed #00ffcc; color: #00ffcc;
-            padding: 10px; text-align: center; border-radius: 8px; font-size: 13px; cursor: pointer; font-weight: 500;
+            padding: 8px; text-align: center; border-radius: 8px; font-size: 12px; cursor: pointer;
         }
         .admin-file-label:hover { background: rgba(0,255,204,0.1); }
         #localVideoInput { display: none; }
@@ -133,19 +133,22 @@
 <body>
 
     <div class="stream-container">
+        <!-- Экран ожидания: Stream Room -->
         <div id="sync-overlay">
             <div id="waiting-text">Stream Room</div>
             <div id="sync-btn" onclick="unlockPlayback()">▶ Нажмите для старта и синхронизации</div>
         </div>
 
+        <!-- Видео плеер -->
         <video id="videoElement" class="video-player" playsinline autoplay></video>
-        <audio id="bgAudio" loop style="display:none;"></audio>
 
+        <!-- Чат снизу -->
         <div class="chat-overlay">
             <div class="chat-box">
                 <iframe src="https://www5.cbox.ws/box/?boxid=967024&boxtag=lVnQsO" allowtransparency="yes" allow="autoplay" frameborder="0"></iframe>
             </div>
             
+            <!-- Кнопки управления в углу под чатом -->
             <div class="controls-group">
                 <button class="ctrl-btn" onclick="toggleFullscreen()" title="На весь экран">
                     <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
@@ -159,56 +162,53 @@
             </div>
         </div>
 
+        <!-- Пульт администратора -->
         <div id="admin-panel">
-            <div class="admin-panel-content">
-                <h3>Пульт трансляции</h3>
-                <div class="admin-label">Плейлист:</div>
-                <div id="playlistContainer" class="playlist-container"></div>
+            <h3>Пульт трансляции</h3>
+            
+            <div class="admin-label">Плейлист (Люди Икс '97):</div>
+            <div id="playlistContainer" class="playlist-container"></div>
 
-                <div class="admin-label">Или вставить ссылку вручную:</div>
-                <input type="text" id="customUrlInput" class="admin-input" placeholder="https://..." value="">
-                <button class="admin-btn-action" onclick="playCustomUrl()">Воспроизвести ссылку</button>
+            <div class="admin-label">Или вставить ссылку (.m3u8 / mp4):</div>
+            <input type="text" id="customUrlInput" class="admin-input" placeholder="https://...">
+            <button class="admin-btn-action" onclick="playCustomUrl()">Воспроизвести ссылку</button>
 
-                <div class="admin-label">Или загрузить файл с устройства:</div>
-                <label class="admin-file-label">
-                    📁 Выбрать видеофайл (.mp4)
-                    <input type="file" id="localVideoInput" accept="video/mp4,video/*" onchange="playLocalVideo(event)">
-                </label>
+            <div class="admin-label">Или выбрать файл с устройства:</div>
+            <label class="admin-file-label">
+                📁 Загрузить видеофайл (.mp4)
+                <input type="file" id="localVideoInput" accept="video/mp4,video/*" onchange="playLocalVideo(event)">
+            </label>
 
-                <button class="admin-btn-action" onclick="closeAdminPanel()" style="background: #333; color: #fff; margin-top: 4px;">Скрыть пульт</button>
-            </div>
+            <button class="admin-btn-action" onclick="closeAdminPanel()" style="background: #333; color: #fff;">Скрыть пульт</button>
         </div>
     </div>
 
     <script>
         const video = document.getElementById('videoElement');
-        const bgAudio = document.getElementById('bgAudio');
         const adminBtn = document.getElementById('adminBtn');
         let isAdmin = false;
-        let peer = null;
+        let peer;
         let viewers = [];
         let adminConnection = null;
         let isSyncing = false;
         let wakeLock = null;
         let syncInterval = null;
         let reconnectTimer = null;
-        let hasStartedStream = false;
-        let latestAdminData = null;
-        let hlsInstance = null;
-        let freezeCheckTimer = null;
+        let hasStartedStream = false; 
+        let latestAdminData = null;   
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
 
         let playlist = [
-            { title: "Люди Икс 97 (1 сезон 1 серия)", url: "https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97_1_sezon_-_1_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс 97 (1 сезон 2 серия)", url: "https://o8.anwap.be/serials/oshls/HNDDNVU5cxTE6glAC3mVmA/1790296490/Lyudi_Iks_97_1_sezon_-_2_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс 97 (1 сезон 3 серия)", url: "https://o8.anwap.be/serials/oshls/-zWD4d_xVTn6P9WXHDW5IQ/1790300984/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс 97 (1 сезон 4 серия)", url: "https://o8.anwap.be/serials/oshls/rPxMUpcEI6I7KIdwnLWbkQ/1790301060/Lyudi_Iks_97_1_sezon_-_4_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс 97 (1 сезон 5 серия)", url: "https://o8.anwap.be/serials/oshls/WtJF55Cpr376S6NYdQ3Y7A/1790301120/Lyudi_Iks_97_1_sezon_-_5_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс '97 (1 сезон 1 серия)", url: "https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97_1_sezon_-_1_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс '97 (1 сезон 2 серия)", url: "https://o8.anwap.be/serials/oshls/HNDDNVU5cxTE6glAC3mVmA/1790296490/Lyudi_Iks_97_1_sezon_-_2_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс '97 (1 сезон 3 серия)", url: "https://o8.anwap.be/serials/oshls/-zWD4d_xVTn6P9WXHDW5IQ/1790300984/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс '97 (1 сезон 4 серия)", url: "https://o8.anwap.be/serials/oshls/rPxMUpcEI6I7KIdwnLWbkQ/1790301060/Lyudi_Iks_97_1_sezon_-_4_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс '97 (1 сезон 5 серия)", url: "https://o8.anwap.be/serials/oshls/WtJF55Cpr376S6NYdQ3Y7A/1790301120/Lyudi_Iks_97_1_sezon_-_5_seriya_(anwap.org).m3u8" },
             { title: "Люди Икс '97 (1 сезон 6 серия)", url: "https://o8.anwap.be/serials/oshls/r-wkm0TdDdy5MtdEYdYmIw/1790301196/Lyudi_Iks_97_1_sezon_-_6_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс 97 (1 сезон 7 серия)", url: "https://o8.anwap.be/serials/oshls/OD8a3jgGnH8dX3bXg4kXpg/1790301247/Lyudi_Iks_97_1_sezon_-_7_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс 97 (1 сезон 8 серия)", url: "https://o8.anwap.be/serials/oshls/IRj6rVZMFQlgGuOs-cGTWg/1790301283/Lyudi_Iks_97_1_sezon_-_8_seriya_(anwap.org).m3u8" },
-            { title: "Люди Икс 97 (1 сезон 9 серия)", url: "https://o9.anwap.be/serials/oshls/Mk3yOj0cscTRY0uIkvId3Q/1790301313/Lyudi_Iks_97_1_sezon_-_9_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс '97 (1 сезон 7 серия)", url: "https://o8.anwap.be/serials/oshls/OD8a3jgGnH8dX3bXg4kXpg/1790301247/Lyudi_Iks_97_1_sezon_-_7_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс '97 (1 сезон 8 серия)", url: "https://o8.anwap.be/serials/oshls/IRj6rVZMFQlgGuOs-cGTWg/1790301283/Lyudi_Iks_97_1_sezon_-_8_seriya_(anwap.org).m3u8" },
+            { title: "Люди Икс '97 (1 сезон 9 серия)", url: "https://o9.anwap.be/serials/oshls/Mk3yOj0cscTRY0uIkvId3Q/1790301313/Lyudi_Iks_97_1_sezon_-_9_seriya_(anwap.org).m3u8" },
             { title: "Люди Икс '97 (1 сезон 10 серия)", url: "https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97_1_sezon_-_10_seriya_(anwap.org).m3u8" }
         ];
         let currentPlaylistIndex = 0;
@@ -224,6 +224,7 @@
                 container.appendChild(div);
             });
         }
+        renderPlaylist();
 
         function selectPlaylistItem(index) {
             currentPlaylistIndex = index;
@@ -234,8 +235,6 @@
                 broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
             });
         }
-
-        renderPlaylist();
 
         async function requestWakeLock() {
             if ('wakeLock' in navigator) {
@@ -257,29 +256,11 @@
             }
         });
 
-        function initFreezeProtection() {
-            if (freezeCheckTimer) clearInterval(freezeCheckTimer);
-            let lastTime = -1;
-            let freezeCount = 0;
-
-            freezeCheckTimer = setInterval(() => {
-                if (!video.paused && hasStartedStream) {
-                    if (video.currentTime === lastTime) {
-                        freezeCount++;
-                        if (freezeCount >= 3) {
-                            let t = video.currentTime;
-                            video.currentTime = t + 0.1;
-                            video.play().catch(() => {});
-                            freezeCount = 0;
-                        }
-                    } else {
-                        freezeCount = 0;
-                        lastTime = video.currentTime;
-                    }
-                }
-            }, 1000);
-        }
-        initFreezeProtection();
+        video.addEventListener('leavepictureinpicture', () => {
+            if (video.paused && hasStartedStream) {
+                video.play().catch(() => {});
+            }
+        });
 
         function updatePlayerControls() {
             video.controls = isAdmin;
@@ -290,71 +271,10 @@
             startAsViewer();
         }
 
-        function startAsViewer() {
-            if (peer) {
-                try { peer.destroy(); } catch(e) {}
-            }
-            peer = new Peer({ debug: 0 });
-
-            peer.on('open', () => {
-                connectToHost();
-            });
-            peer.on('error', () => {
-                handleViewerDisconnect();
-            });
-        }
-
-        function connectToHost() {
-            if (isAdmin) return;
-            if (adminConnection && adminConnection.open) return;
-
-            const conn = peer.connect(ROOM_ID + "_host", { serialization: 'json' });
-
-            conn.on('open', () => {
-                adminConnection = conn;
-                conn.send({ type: 'get_status' });
-                if (reconnectTimer) {
-                    clearInterval(reconnectTimer);
-                    reconnectTimer = null;
-                }
-            });
-
-            conn.on('data', (data) => {
-                latestAdminData = data;
-                // Как только получили данные от хоста, сразу показываем кнопку синхронизации
-                if (!hasStartedStream) {
-                    document.getElementById('waiting-text').style.display = 'none';
-                    document.getElementById('sync-btn').style.display = 'block';
-                }
-                handleRemoteCommand(data);
-            });
-
-            conn.on('error', () => {
-                handleViewerDisconnect();
-            });
-            conn.on('close', () => {
-                handleViewerDisconnect();
-            });
-        }
-
-        function handleViewerDisconnect() {
-            adminConnection = null;
-            if (!isAdmin && hasStartedStream) {
-                const syncBtn = document.getElementById('sync-btn');
-                syncBtn.style.display = 'block';
-                syncBtn.innerText = "🔄 Синхронизировать с админом";
-            }
-            if (!isAdmin && !reconnectTimer) {
-                reconnectTimer = setInterval(() => {
-                    connectToHost();
-                }, 3000);
-            }
-        }
-
+        // --- ЛОГИКА АДМИНА (ХОСТА) ---
         function startAsHost() {
-            if (peer) {
-                try { peer.destroy(); } catch(e) {}
-            }
+            if (peer) peer.destroy();
+            
             peer = new Peer(ROOM_ID + "_host", { debug: 0 });
 
             peer.on('open', () => {
@@ -371,17 +291,18 @@
             });
 
             peer.on('connection', (incomingConn) => {
-                if (!viewers.includes(incomingConn)) {
-                    viewers.push(incomingConn);
-                }
+                viewers.push(incomingConn);
+
                 incomingConn.on('open', () => {
                     sendCurrentState(incomingConn);
                 });
+
                 incomingConn.on('data', (data) => {
                     if (data.type === 'get_status') {
                         sendCurrentState(incomingConn);
                     }
                 });
+
                 incomingConn.on('close', () => {
                     viewers = viewers.filter(c => c !== incomingConn);
                 });
@@ -411,6 +332,72 @@
             });
         }
 
+        // --- ЛОГИКА ЗРИТЕЛЯ ---
+        function startAsViewer() {
+            if (peer) peer.destroy();
+            peer = new Peer({ debug: 0 });
+
+            peer.on('open', () => {
+                connectToHost();
+            });
+
+            peer.on('error', () => {
+                handleViewerDisconnect();
+            });
+        }
+
+        function connectToHost() {
+            if (isAdmin) return;
+            if (adminConnection && adminConnection.open) return;
+
+            const conn = peer.connect(ROOM_ID + "_host", { serialization: 'json' });
+
+            conn.on('open', () => {
+                adminConnection = conn;
+                
+                if (!hasStartedStream) {
+                    document.getElementById('waiting-text').style.display = 'none';
+                    document.getElementById('sync-btn').style.display = 'block';
+                }
+
+                conn.send({ type: 'get_status' });
+                
+                if (reconnectTimer) {
+                    clearInterval(reconnectTimer);
+                    reconnectTimer = null;
+                }
+            });
+
+            conn.on('data', (data) => {
+                latestAdminData = data;
+                handleRemoteCommand(data);
+            });
+
+            conn.on('error', () => {
+                handleViewerDisconnect();
+            });
+
+            conn.on('close', () => {
+                handleViewerDisconnect();
+            });
+        }
+
+        function handleViewerDisconnect() {
+            adminConnection = null;
+            
+            if (!isAdmin && hasStartedStream) {
+                const syncBtn = document.getElementById('sync-btn');
+                syncBtn.style.display = 'block';
+                syncBtn.innerText = "🔄 Синхронизировать с админом";
+            }
+
+            if (!isAdmin && !reconnectTimer) {
+                reconnectTimer = setInterval(() => {
+                    connectToHost();
+                }, 3000);
+            }
+        }
+
         initP2P();
 
         function unlockPlayback() {
@@ -419,10 +406,6 @@
             video.muted = false;
             requestWakeLock();
 
-            bgAudio.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=";
-            bgAudio.play().catch(() => {});
-
-            // Сразу применяем то, что прислал админ, либо запрашиваем свежий статус
             if (latestAdminData) {
                 applyAdminData(latestAdminData);
             } else if (adminConnection && adminConnection.open) {
@@ -444,7 +427,13 @@
         }
 
         function handleRemoteCommand(data) {
-            if (!isAdmin && hasStartedStream) {
+            if (!isAdmin) {
+                if (!hasStartedStream) {
+                    document.getElementById('waiting-text').style.display = 'none';
+                    document.getElementById('sync-btn').style.display = 'block';
+                    return; 
+                }
+
                 isSyncing = true;
                 applyAdminData(data);
                 setTimeout(() => { isSyncing = false; }, 300);
@@ -482,6 +471,7 @@
             }
         }
 
+        // --- УПРАВЛЕНИЕ АДМИНОМ ---
         function toggleAdminPanel() {
             if (isAdmin) {
                 document.getElementById('admin-panel').style.display = 'flex';
@@ -493,6 +483,7 @@
                 isAdmin = true;
                 hasStartedStream = true;
                 updatePlayerControls();
+                
                 adminBtn.classList.add('admin-active');
 
                 loadVideo(playlist[currentPlaylistIndex].url, 16, () => {
@@ -519,7 +510,7 @@
                 return;
             }
 
-            playlist.unshift({ title: "🔗 Ручная: " + url.split('/').pop().substring(0, 25), url: url });
+            playlist.unshift({ title: "🔗 " + url.split('/').pop().substring(0, 30), url: url });
             currentPlaylistIndex = 0;
             renderPlaylist();
 
@@ -527,7 +518,7 @@
                 video.play().catch(() => {});
                 broadcastCommand({ type: 'change_movie', url: url, time: 16, paused: false });
             });
-            alert("Ссылка запущена!");
+            alert("Ссылка успешно запущена!");
         }
 
         function playLocalVideo(event) {
@@ -545,6 +536,7 @@
             });
         }
 
+        // --- УПРАВЛЕНИЕ РЕЖИМАМИ (PiP и Fullscreen строго для видео) ---
         async function togglePiP() {
             try {
                 if (document.pictureInPictureElement) {
@@ -572,25 +564,17 @@
         }
 
         function loadVideo(url, targetTime = 16, callback) {
-            if (hlsInstance) {
-                hlsInstance.destroy();
-                hlsInstance = null;
-            }
-
-            if (url.includes('.m3u8')) {
+            if (url.endsWith('.m3u8') || url.includes('.m3u8')) {
                 if (video.canPlayType('application/vnd.apple.mpegurl')) {
                     video.src = url;
                     setupStartTime(targetTime, callback);
                 } else if (Hls.isSupported()) {
-                    hlsInstance = new Hls();
-                    hlsInstance.loadSource(url);
-                    hlsInstance.attachMedia(video);
-                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+                    const hls = new Hls();
+                    hls.loadSource(url);
+                    hls.attachMedia(video);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
                         setupStartTime(targetTime, callback);
                     });
-                } else {
-                    video.src = url;
-                    setupStartTime(targetTime, callback);
                 }
             } else {
                 video.src = url;
