@@ -147,7 +147,7 @@
                     <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg>
                 </button>
                 <button class="ctrl-btn" id="adminBtn" onclick="toggleAdminPanel()" title="Админ">
-                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c-.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c-.12.22.37.29.59.22l2.39-.96c-.5.38 1.03.7 1.62.94l.36 2.54c-.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
                 </button>
             </div>
         </div>
@@ -353,27 +353,61 @@
 
             conn.on('data', (data) => {
                 latestAdminData = data;
-                // Показываем кнопку синхронизации только когда админ реально прислал сигнал/сменил видео/перезашел
-                if (!hasStartedStream) {
-                    document.getElementById('waiting-text').style.display = 'none';
+
+                // СЛУЧАЙ 1: Регулярный фоновый пинг времени (sync_state) — просто догоняем таймлайн без дерганья кнопок
+                if (data.type === 'sync_state') {
+                    if (hasStartedStream) {
+                        let foundIdx = playlist.findIndex(p => p.url === data.url);
+                        if (foundIdx !== -1 && foundIdx !== currentPlaylistIndex) {
+                            // Админ сменил серию, но мы не синхронизированы — покажем кнопку
+                            showSyncPrompt();
+                        } else {
+                            // Тихо подтягиваем рассинхрон времени, если он больше 3 секунд
+                            if (Math.abs(video.currentTime - data.time) > 3.0 && !video.paused) {
+                                video.currentTime = data.time;
+                            }
+                        }
+                    }
+                    return;
                 }
-                const syncBtn = document.getElementById('sync-btn');
-                document.getElementById('sync-overlay').style.display = 'flex';
-                syncBtn.style.display = 'block';
-                syncBtn.innerText = "▶ Нажмите для старта и синхронизации";
+
+                // СЛУЧАЙ 2: Реальное изменение фильма/серии, пауза, плей или первый вход — показываем кнопку синхронизации
+                showSyncPrompt();
             });
 
             conn.on('error', () => { handleViewerDisconnect(); });
             conn.on('close', () => { handleViewerDisconnect(); });
         }
 
+        function showSyncPrompt() {
+            const syncOverlay = document.getElementById('sync-overlay');
+            const waitingText = document.getElementById('waiting-text');
+            const syncBtn = document.getElementById('sync-btn');
+
+            syncOverlay.style.display = 'flex';
+            if (!hasStartedStream) {
+                waitingText.style.display = 'block';
+                waitingText.innerText = "Stream Room";
+                syncBtn.innerText = "▶ Нажмите для старта и синхронизации";
+            } else {
+                waitingText.style.display = 'none';
+                syncBtn.innerText = "🔄 Синхронизировать с новым потоком админа";
+            }
+            syncBtn.style.display = 'block';
+        }
+
         function handleViewerDisconnect() {
             adminConnection = null;
             if (!isAdmin && hasStartedStream) {
+                const syncOverlay = document.getElementById('sync-overlay');
+                const waitingText = document.getElementById('waiting-text');
                 const syncBtn = document.getElementById('sync-btn');
-                document.getElementById('sync-overlay').style.display = 'flex';
+                
+                syncOverlay.style.display = 'flex';
+                waitingText.style.display = 'block';
+                waitingText.innerText = "Потеряна связь с админом...";
                 syncBtn.style.display = 'block';
-                syncBtn.innerText = "🔄 Переподключиться к админу";
+                syncBtn.innerText = "🔄 Переподключиться";
             }
 
             if (!isAdmin && !reconnectTimer) {
@@ -414,8 +448,10 @@
                 renderPlaylist();
             }
 
-            // Если это смена серии/фильма или у зрителя еще не загружен этот URL — загружаем заново без черного экрана
-            if (data.type === 'change_movie' || !video.src || !video.src.includes(data.url.substring(0, 30))) {
+            // Главное исправление черного экрана: сравниваем точный URL. Если URL сменился или плеер пуст — грузим заново
+            const isDifferentSource = !video.src || !video.src.includes(encodeURI(data.url).substring(0, 40)) && video.src !== data.url;
+
+            if (data.type === 'change_movie' || isDifferentSource) {
                 loadVideo(data.url, data.time, () => {
                     if (!data.paused) {
                         video.play().catch(() => {});
