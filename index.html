@@ -44,18 +44,29 @@
         .chat-box { width: 100%; height: 100%; overflow: hidden; background: transparent; }
         .chat-box iframe { width: 100%; height: 100%; border: none; background: transparent; }
 
-        /* Минималистичная кнопка админа в самом низу поверх чата */
+        /* Минималистичная кнопка админа внизу */
         #admin-btn {
             position: absolute; bottom: 8px; right: 8px;
             z-index: 100; background: rgba(0, 0, 0, 0.3); color: rgba(255, 255, 255, 0.5);
             border: none; border-radius: 4px;
             width: 24px; height: 24px; font-size: 12px; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
-            transition: opacity 0.2s;
         }
         #admin-btn:hover { background: rgba(0, 0, 0, 0.7); color: #fff; }
 
-        /* Панель администратора (пульт) */
+        /* Кнопка разблокировки звука/воспроизведения для зрителей (обход блокировки браузеров) */
+        #sync-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 67%;
+            background: rgba(0,0,0,0.4); z-index: 40; display: none;
+            justify-content: center; align-items: center; cursor: pointer;
+        }
+        #sync-btn {
+            background: #00ffcc; color: #000; padding: 10px 20px;
+            border-radius: 20px; font-weight: bold; font-size: 14px;
+            box-shadow: 0 4px 15px rgba(0,255,204,0.4);
+        }
+
+        /* Панель администратора */
         #admin-panel {
             position: absolute; top: 0; left: 0; width: 100%; height: 67%;
             background: rgba(10, 10, 10, 0.95); z-index: 50;
@@ -73,19 +84,22 @@
 <body>
 
     <div class="stream-container">
-        <!-- Минималистичная кнопка админа внизу -->
+        <!-- Кнопка разблокировки для зрителей при автозапрете -->
+        <div id="sync-overlay" onclick="unlockPlayback()">
+            <div id="sync-btn">▶ Нажмите для синхронизации</div>
+        </div>
+
+        <!-- Кнопка админа внизу -->
         <button id="admin-btn" onclick="toggleAdminPanel()">⚙️</button>
 
-        <!-- Пульт управления (виден только админу после ввода пароля) -->
+        <!-- Пульт управления -->
         <div id="admin-panel">
             <h3>Пульт трансляции</h3>
-            
             <div class="admin-label">Выбрать сериал / фильм:</div>
             <select id="movieSelect" class="admin-select" onchange="changeMovieAdmin()">
                 <option value="https://o12.anwap.be/ohls/LpCRXyzOPrQYvMy9aA105w/1790123606/CHelovek-pauk_Novyj_denq-48515_(anwap.org).m3u8">Человек-паук: Новый день</option>
                 <option value="https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97_1_sezon_-_1_seriya_(anwap.org).m3u8">Люди Икс '97 (1 сезон 1 серия)</option>
             </select>
-
             <button class="admin-btn-action" onclick="closeAdminPanel()">Скрыть пульт</button>
         </div>
 
@@ -107,18 +121,19 @@
         let viewers = []; 
         let adminConnection = null;
 
-        const ROOM_ID = "strmweb_live_room_sync_2026"; 
+        const ROOM_ID = "strmweb_live_room_sync_2026_v2"; 
 
         function initP2P() {
+            // Создаем уникальный ID для каждого подключения, чтобы не было конфликтов при перезаходах
             peer = new Peer();
 
-            peer.on('open', (id) => {
+            peer.on('open', () => {
                 connectToRoom();
             });
         }
 
         function connectToRoom() {
-            const conn = peer.connect(ROOM_ID + "_host");
+            const conn = peer.connect(ROOM_ID + "_host", { serialization: 'json' });
 
             conn.on('open', () => {
                 isAdmin = false;
@@ -134,20 +149,30 @@
                 becomeHost();
             });
 
+            // Если хост не ответил за 1 секунду — становимся хостом сами
             setTimeout(() => {
                 if (!isAdmin && !adminConnection) {
                     becomeHost();
                 }
-            }, 1500);
+            }, 1000);
         }
 
         function becomeHost() {
             if (peer) peer.destroy();
             
+            // Создаем хост с фиксированным ID комнаты
             peer = new Peer(ROOM_ID + "_host");
 
             peer.on('open', () => {
                 isAdmin = true;
+                console.log("Я стал хостом (Админом)");
+            });
+
+            peer.on('error', (err) => {
+                if (err.type === 'unavailable-id') {
+                    // Если хост уже занят старой сессией, пробуем подключиться к нему еще раз как зритель
+                    initP2P();
+                }
             });
 
             peer.on('connection', (incomingConn) => {
@@ -175,6 +200,8 @@
         function toggleAdminPanel() {
             let pass = prompt("Введите код администратора:");
             if (pass === "777") {
+                // Если ты ввел пароль, принудительно активируем статус админа (на случай сбоев связи)
+                isAdmin = true;
                 document.getElementById('admin-panel').style.display = 'flex';
             } else if (pass !== null) {
                 alert("Неверный пароль!");
@@ -216,6 +243,11 @@
             }
         }
 
+        function unlockPlayback() {
+            document.getElementById('sync-overlay').style.display = 'none';
+            video.play().catch(() => {});
+        }
+
         function handleRemoteCommand(data) {
             if (!isAdmin) {
                 if (data.type === 'sync_state') {
@@ -223,17 +255,24 @@
                     loadVideo(data.url);
                     video.currentTime = data.time;
                     if (!data.paused) {
-                        video.play().catch(() => {});
+                        video.play().catch(() => {
+                            // Показываем кнопку разблокировки, если браузер заблокировал автовоспроизведение
+                            document.getElementById('sync-overlay').style.display = 'flex';
+                        });
                     }
                 } else if (data.type === 'change_movie') {
                     document.getElementById('movieSelect').value = data.url;
-                    loadVideo(url = data.url);
+                    loadVideo(data.url);
                     video.currentTime = data.time;
-                    video.play().catch(() => {});
+                    video.play().catch(() => {
+                        document.getElementById('sync-overlay').style.display = 'flex';
+                    });
                 } else if (data.type === 'seek') {
                     video.currentTime = data.time;
                 } else if (data.type === 'play') {
-                    video.play().catch(() => {});
+                    video.play().catch(() => {
+                        document.getElementById('sync-overlay').style.display = 'flex';
+                    });
                 } else if (data.type === 'pause') {
                     video.pause();
                 }
