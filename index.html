@@ -92,7 +92,7 @@
             <div id="sync-btn">▶ Нажмите для старта и синхронизации</div>
         </div>
 
-        <!-- Кнопки управления (PiP и Админ) -->
+        <!-- Кнопки управления (PiP и Админ) доступны всем -->
         <div class="controls-group">
             <button class="ctrl-btn" onclick="togglePiP()" title="Картинка в картинке">📺</button>
             <button class="ctrl-btn" onclick="toggleAdminPanel()" title="Админ">⚙️</button>
@@ -110,7 +110,7 @@
         </div>
 
         <!-- Видео плеер -->
-        <video id="videoElement" class="video-player" playsinline></video>
+        <video id="videoElement" class="video-player" playsinline autoplay></video>
 
         <!-- Чат снизу -->
         <div class="chat-overlay">
@@ -160,12 +160,12 @@
         });
 
         function updatePlayerControls() {
+            // Элементы управления нативной панели только у админа, у зрителей скрыты для красоты
             video.controls = isAdmin;
         }
 
         function initP2P() {
             updatePlayerControls();
-            // Первичный запуск видео локально, чтобы оно шло независимо
             loadVideo(document.getElementById('movieSelect').value, 16, () => {
                 startAsViewer();
             });
@@ -260,7 +260,6 @@
 
         function handleDisconnect() {
             adminConnection = null;
-            // Фоновая попытка переподключения каждые 3 секунды (видео у зрителей при этом НЕ останавливается)
             if (!isAdmin && !reconnectTimer) {
                 reconnectTimer = setInterval(() => {
                     connectToHost();
@@ -307,7 +306,9 @@
                 } else if (document.pictureInPictureEnabled && video) {
                     await video.requestPictureInPicture();
                 }
-            } catch (err) {}
+            } catch (err) {
+                console.log("PiP error:", err);
+            }
         }
 
         function loadVideo(url, targetTime = 16, callback) {
@@ -348,7 +349,7 @@
         function changeMovieAdmin() {
             const url = document.getElementById('movieSelect').value;
             loadVideo(url, 16, () => {
-                video.play();
+                video.play().catch(() => {});
                 broadcastCommand({ type: 'change_movie', url: url, time: 16, paused: false });
             });
         }
@@ -378,6 +379,7 @@
         function unlockPlayback() {
             document.getElementById('sync-overlay').style.display = 'none';
             if (video.currentTime < 1) video.currentTime = 16;
+            video.muted = false; // Разрешаем звук при клике
             video.play().catch(() => {});
             requestWakeLock();
         }
@@ -398,8 +400,8 @@
                             }
                         });
                     } else {
-                        // Жесткая коррекция рассинхрона (если разница больше 0.8 сек)
-                        if (Math.abs(video.currentTime - data.time) > 0.8) {
+                        // Увеличили порог рассинхрона до 1.5 сек, чтобы звук успевал стабильно декодироваться без тиков и заиканий
+                        if (Math.abs(video.currentTime - data.time) > 1.5) {
                             video.currentTime = data.time;
                         }
                         if (data.paused) {
