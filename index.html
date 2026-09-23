@@ -46,16 +46,28 @@
 
         /* Кнопки управления внизу справа */
         .controls-group {
-            position: absolute; bottom: 8px; right: 8px;
-            z-index: 100; display: flex; gap: 4px;
+            position: absolute; bottom: 12px; right: 12px;
+            z-index: 100; display: flex; gap: 6px;
         }
         .ctrl-btn {
-            background: rgba(0, 0, 0, 0.4); color: rgba(255, 255, 255, 0.7);
-            border: none; border-radius: 4px;
-            width: 24px; height: 24px; font-size: 12px; cursor: pointer;
+            background: rgba(0, 0, 0, 0.6); color: rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px;
+            width: 32px; height: 32px; cursor: pointer;
             display: flex; align-items: center; justify-content: center;
+            transition: all 0.2s ease;
         }
-        .ctrl-btn:hover { background: rgba(0, 0, 0, 0.8); color: #fff; }
+        .ctrl-btn svg {
+            width: 16px; height: 16px; fill: currentColor;
+        }
+        .ctrl-btn:hover { background: rgba(0, 0, 0, 0.9); color: #fff; border-color: rgba(255, 255, 255, 0.3); }
+
+        /* Зеленая подсветка шестеренки для админа */
+        .ctrl-btn.admin-active {
+            color: #00ffcc;
+            border-color: rgba(0, 255, 204, 0.4);
+            background: rgba(0, 255, 204, 0.1);
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+        }
 
         /* Экран ожидания (strmweb) и кнопка синхронизации */
         #sync-overlay {
@@ -98,17 +110,27 @@
 </head>
 <body>
 
-    <div class="stream-container">
+    <div class="stream-container" id="streamContainer">
         <!-- Экран ожидания: изначально виден только логотип strmweb -->
         <div id="sync-overlay">
             <div id="waiting-text">strmweb</div>
             <div id="sync-btn" onclick="unlockPlayback()">▶ Нажмите для старта и синхронизации</div>
         </div>
 
-        <!-- Кнопки управления (PiP и Админ) -->
+        <!-- Кнопки управления (Fullscreen, PiP и Админ со SVG иконками) -->
         <div class="controls-group">
-            <button class="ctrl-btn" onclick="togglePiP()" title="Картинка в картинке">📺</button>
-            <button class="ctrl-btn" onclick="toggleAdminPanel()" title="Админ">⚙️</button>
+            <!-- Кнопка На весь экран -->
+            <button class="ctrl-btn" onclick="toggleFullscreen()" title="На весь экран">
+                <svg viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+            </button>
+            <!-- Кнопка Картинка в картинке -->
+            <button class="ctrl-btn" onclick="togglePiP()" title="Картинка в картинке">
+                <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg>
+            </button>
+            <!-- Кнопка Админ (шестеренка) -->
+            <button class="ctrl-btn" id="adminBtn" onclick="toggleAdminPanel()" title="Админ">
+                <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            </button>
         </div>
 
         <!-- Пульт администратора -->
@@ -135,6 +157,8 @@
 
     <script>
         const video = document.getElementById('videoElement');
+        const container = document.getElementById('streamContainer');
+        const adminBtn = document.getElementById('adminBtn');
         let isAdmin = false;
         let peer;
         let viewers = [];
@@ -143,8 +167,8 @@
         let wakeLock = null;
         let syncInterval = null;
         let reconnectTimer = null;
-        let hasStartedStream = false; // Запустил ли зритель трансляцию кнопкой
-        let latestAdminData = null;   // Последние данные от админа
+        let hasStartedStream = false; 
+        let latestAdminData = null;   
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
 
@@ -267,9 +291,10 @@
             conn.on('open', () => {
                 adminConnection = conn;
                 
-                // Как только админ в сети и соединение установлено — показываем кнопку синхронизации зрителям!
-                document.getElementById('waiting-text').style.display = 'none';
-                document.getElementById('sync-btn').style.display = 'block';
+                if (!hasStartedStream) {
+                    document.getElementById('waiting-text').style.display = 'none';
+                    document.getElementById('sync-btn').style.display = 'block';
+                }
 
                 conn.send({ type: 'get_status' });
                 
@@ -296,8 +321,12 @@
         function handleViewerDisconnect() {
             adminConnection = null;
             
-            // Если админ отключился, поток у зрителя НЕ останавливается (продолжает играть локально)
-            // Запускаем фоновый поиск админа для повторного появления кнопки синхронизации при его возвращении
+            if (!isAdmin && hasStartedStream) {
+                const syncBtn = document.getElementById('sync-btn');
+                syncBtn.style.display = 'block';
+                syncBtn.innerText = "🔄 Синхронизировать с админом";
+            }
+
             if (!isAdmin && !reconnectTimer) {
                 reconnectTimer = setInterval(() => {
                     connectToHost();
@@ -307,7 +336,6 @@
 
         initP2P();
 
-        // Кнопка для зрителя: активирует запуск, звук и синхронизацию с админом
         function unlockPlayback() {
             hasStartedStream = true;
             document.getElementById('sync-overlay').style.display = 'none';
@@ -318,16 +346,19 @@
                 applyAdminData(latestAdminData);
             } else if (adminConnection && adminConnection.open) {
                 adminConnection.send({ type: 'get_status' });
+            } else {
+                loadVideo(document.getElementById('movieSelect').value, 16, () => {
+                    video.play().catch(() => {});
+                });
             }
         }
 
         function handleRemoteCommand(data) {
             if (!isAdmin) {
-                // Если админ в сети, а зритель еще не нажал кнопку старта, держим кнопку видимой
                 if (!hasStartedStream) {
                     document.getElementById('waiting-text').style.display = 'none';
                     document.getElementById('sync-btn').style.display = 'block';
-                    return; // Не применяем команды автоматически до нажатия кнопки старта
+                    return; 
                 }
 
                 isSyncing = true;
@@ -376,6 +407,9 @@
                 hasStartedStream = true;
                 updatePlayerControls();
                 
+                // Включаем зеленую подсветку кнопки шестеренки для админа
+                adminBtn.classList.add('admin-active');
+
                 loadVideo(document.getElementById('movieSelect').value, 16, () => {
                     video.play().catch(() => {});
                 });
@@ -392,6 +426,7 @@
             document.getElementById('admin-panel').style.display = 'none';
         }
 
+        // --- УПРАВЛЕНИЕ РЕЖИМАМИ (PiP и Fullscreen) ---
         async function togglePiP() {
             try {
                 if (document.pictureInPictureElement) {
@@ -401,6 +436,24 @@
                 }
             } catch (err) {
                 console.log("PiP error:", err);
+            }
+        }
+
+        function toggleFullscreen() {
+            try {
+                if (!document.fullscreenElement) {
+                    if (container.requestFullscreen) {
+                        container.requestFullscreen();
+                    } else if (video.webkitEnterFullscreen) { // Для iOS Safari
+                        video.webkitEnterFullscreen();
+                    }
+                } else {
+                    if (document.exitFullscreen) {
+                        document.exitFullscreen();
+                    }
+                }
+            } catch (err) {
+                console.log("Fullscreen error:", err);
             }
         }
 
