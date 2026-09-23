@@ -137,22 +137,24 @@
             if ('wakeLock' in navigator) {
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
-                } catch (err) {
-                    console.log("Wake Lock ошибка:", err);
-                }
+                } catch (err) {}
             }
         }
 
+        // Мгновенная проверка и подтяжка синхронизации при возвращении на вкладку
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 requestWakeLock();
+                if (video.paused) {
+                    video.play().catch(() => {});
+                }
                 if (!isAdmin && adminConnection && adminConnection.open) {
                     adminConnection.send({ type: 'get_status' });
                 }
             }
         });
 
-        // Жесткий запрет на паузу при возвращении из режима «Картинка в картинке»
+        // Защита от паузы при выходе из PiP
         video.addEventListener('leavepictureinpicture', () => {
             if (video.paused) {
                 video.play().catch(() => {});
@@ -205,7 +207,7 @@
             });
         }
 
-        // Фоновый пинг от хоста каждые 3 секунды для поддержания синхронизации
+        // Сверхбыстрый фоновый пинг от хоста каждую 1 секунду для моментальной синхронизации
         function startHostHeartbeat() {
             if (syncInterval) clearInterval(syncInterval);
             syncInterval = setInterval(() => {
@@ -217,7 +219,7 @@
                         paused: video.paused
                     });
                 }
-            }, 3000);
+            }, 1000);
         }
 
         function startAsViewer() {
@@ -291,7 +293,6 @@
             document.getElementById('admin-panel').style.display = 'none';
         }
 
-        // Ручной запуск PiP
         async function togglePiP() {
             try {
                 if (document.pictureInPictureElement) {
@@ -299,9 +300,7 @@
                 } else if (document.pictureInPictureEnabled && video) {
                     await video.requestPictureInPicture();
                 }
-            } catch (err) {
-                console.log("PiP ошибка:", err);
-            }
+            } catch (err) {}
         }
 
         function loadVideo(url, callback) {
@@ -395,7 +394,8 @@
                             }
                         });
                     } else {
-                        if (Math.abs(video.currentTime - data.time) > 2.0) {
+                        // Жесткая коррекция при расхождении больше чем на 0.8 секунды
+                        if (Math.abs(video.currentTime - data.time) > 0.8) {
                             video.currentTime = data.time;
                         }
                         if (data.paused) {
@@ -416,7 +416,7 @@
                     video.pause();
                 }
 
-                setTimeout(() => { isSyncing = false; }, 400);
+                setTimeout(() => { isSyncing = false; }, 300);
             }
         }
 
