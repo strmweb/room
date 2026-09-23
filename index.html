@@ -45,7 +45,7 @@
         .chat-box iframe { width: 100%; height: 100%; border: none; background: transparent; }
 
         .controls-group {
-            position: absolute; bottom: 2px; right: 8px;
+            position: absolute; bottom: 2px; right: 54px;
             z-index: 100; display: flex; gap: 4px; height: 24px; align-items: center;
         }
         .ctrl-btn {
@@ -187,13 +187,16 @@
         let latestAdminData = null;   
         let currentHls = null;
 
-        const ROOM_ID = "strmweb_live_room_stable_2026_v20";
+        const ROOM_ID = "strmweb_live_room_stable_2026_v21";
 
         const peerConfig = {
             config: {
                 'iceServers': [
                     { urls: 'stun:stun.l.google.com:19302' },
-                    { urls: 'stun:stun1.l.google.com:19302' }
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                    { urls: 'stun:stun3.l.google.com:19302' },
+                    { urls: 'stun:stun4.l.google.com:19302' }
                 ]
             },
             debug: 0
@@ -356,15 +359,23 @@
             conn.on('data', (data) => {
                 latestAdminData = data;
 
-                if (data.type === 'sync_state') {
+                // Автоматическая синхронизация при перемотке (seek) или тике (sync_state) без показа кнопки
+                if (data.type === 'sync_state' || data.type === 'seek') {
                     if (hasStartedStream && activeStreamUrl === data.url) {
-                        if (Math.abs(video.currentTime - data.time) > 3.0 && !video.paused) {
+                        isSyncing = true;
+                        if (Math.abs(video.currentTime - data.time) > 1.5) {
                             video.currentTime = data.time;
                         }
+                        if (data.type === 'seek') {
+                            if (data.paused) video.pause();
+                            else video.play().catch(() => {});
+                        }
+                        setTimeout(() => { isSyncing = false; }, 300);
                         return;
                     }
                 }
 
+                // Единая кнопка нужна только при смене фильма или потере связи
                 showSyncPrompt(data.type === 'change_movie' ? "🔄 Переключиться на поток админа" : "▶ Синхронизировать");
             });
 
@@ -471,7 +482,6 @@
                 updatePlayerControls();
                 adminBtn.classList.add('admin-active');
 
-                // Прячем заглушку сразу при открытии пульта админом, чтобы видеоэлемент был готов к выбору
                 document.getElementById('sync-overlay').style.display = 'none';
 
                 startAsHost();
@@ -609,7 +619,7 @@
         }
 
         video.addEventListener('seeking', () => {
-            if (isAdmin && !isSyncing) broadcastCommand({ type: 'seek', time: video.currentTime });
+            if (isAdmin && !isSyncing) broadcastCommand({ type: 'seek', time: video.currentTime, paused: video.paused });
         });
         video.addEventListener('play', () => {
             if (isAdmin && !isSyncing) broadcastCommand({ type: 'play', time: video.currentTime, paused: false });
