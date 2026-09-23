@@ -57,7 +57,7 @@
         }
         .ctrl-btn:hover { background: rgba(0, 0, 0, 0.8); color: #fff; }
 
-        /* Экран ожидания и кнопка старта */
+        /* Экран ожидания (strmweb) и кнопка синхронизации */
         #sync-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 67%;
             background: #000000; z-index: 40; display: flex;
@@ -71,8 +71,15 @@
             display: none; background: #00ffcc; color: #000; padding: 12px 24px;
             border-radius: 20px; font-weight: bold; font-size: 14px;
             box-shadow: 0 4px 15px rgba(0,255,204,0.4); text-align: center; cursor: pointer;
+            margin-top: 15px; animation: pulse 1.5s infinite;
         }
         #sync-btn:hover { background: #00e6b8; }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
 
         /* Панель администратора */
         #admin-panel {
@@ -92,19 +99,19 @@
 <body>
 
     <div class="stream-container">
-        <!-- Экран ожидания (по умолчанию стильный логотип strmweb) -->
+        <!-- Экран ожидания: изначально виден только логотип strmweb -->
         <div id="sync-overlay">
             <div id="waiting-text">strmweb</div>
             <div id="sync-btn" onclick="unlockPlayback()">▶ Нажмите для старта и синхронизации</div>
         </div>
 
-        <!-- Кнопки управления (PiP и Админ) доступны всем -->
+        <!-- Кнопки управления (PiP и Админ) -->
         <div class="controls-group">
             <button class="ctrl-btn" onclick="togglePiP()" title="Картинка в картинке">📺</button>
             <button class="ctrl-btn" onclick="toggleAdminPanel()" title="Админ">⚙️</button>
         </div>
 
-        <!-- Пульт управления -->
+        <!-- Пульт администратора -->
         <div id="admin-panel">
             <h3>Пульт трансляции</h3>
             <div class="admin-label">Выбрать сериал / фильм:</div>
@@ -136,7 +143,8 @@
         let wakeLock = null;
         let syncInterval = null;
         let reconnectTimer = null;
-        let hasStreamStarted = false; // Флаг: запущена ли трансляция админом
+        let hasStartedStream = false; // Запустил ли зритель трансляцию кнопкой
+        let latestAdminData = null;   // Последние данные от админа
 
         const ROOM_ID = "strmweb_live_room_stable_2026_v10";
 
@@ -151,17 +159,17 @@
         document.addEventListener('visibilitychange', async () => {
             if (document.visibilityState === 'visible') {
                 requestWakeLock();
-                if (video.paused && hasStreamStarted) {
+                if (video.paused && hasStartedStream) {
                     video.play().catch(() => {});
                 }
-                if (!isAdmin && adminConnection && adminConnection.open) {
-                    adminConnection.send({ type: 'get_status' });
+                if (!isAdmin && (!adminConnection || !adminConnection.open)) {
+                    connectToHost();
                 }
             }
         });
 
         video.addEventListener('leavepictureinpicture', () => {
-            if (video.paused && hasStreamStarted) {
+            if (video.paused && hasStartedStream) {
                 video.play().catch(() => {});
             }
         });
@@ -172,13 +180,14 @@
 
         function initP2P() {
             updatePlayerControls();
-            startAsViewer(); // Зритель сразу слушает эфир в фоновом режиме
+            startAsViewer();
         }
 
+        // --- ЛОГИКА АДМИНА (ХОСТА) ---
         function startAsHost() {
             if (peer) peer.destroy();
             
-            peer = new Peer(ROOM_ID + "_host");
+            peer = new Peer(ROOM_ID + "_host", { debug: 0 });
 
             peer.on('open', () => {
                 isAdmin = true;
@@ -189,7 +198,7 @@
 
             peer.on('error', (err) => {
                 if (err.type === 'unavailable-id') {
-                    setTimeout(startAsHost, 1000);
+                    setTimeout(startAsHost, 1500);
                 }
             });
 
@@ -226,54 +235,6 @@
             }, 1000);
         }
 
-        function startAsViewer() {
-            if (peer) peer.destroy();
-            peer = new Peer();
-
-            peer.on('open', () => {
-                connectToHost();
-            });
-        }
-
-        function connectToHost() {
-            if (isAdmin) return;
-
-            const conn = peer.connect(ROOM_ID + "_host", { serialization: 'json' });
-
-            conn.on('open', () => {
-                adminConnection = conn;
-                conn.send({ type: 'get_status' });
-                if (reconnectTimer) {
-                    clearInterval(reconnectTimer);
-                    reconnectTimer = null;
-                }
-            });
-
-            conn.on('data', (data) => {
-                handleRemoteCommand(data);
-            });
-
-            conn.on('error', () => {
-                handleDisconnect();
-            });
-
-            conn.on('close', () => {
-                handleDisconnect();
-            });
-        }
-
-        function handleDisconnect() {
-            adminConnection = null;
-            // Если админ улетел с трансляции, поток у зрителей НЕ останавливается (они продолжают смотреть то, что смотрели)
-            if (!isAdmin && !reconnectTimer) {
-                reconnectTimer = setInterval(() => {
-                    connectToHost();
-                }, 3000);
-            }
-        }
-
-        initP2P();
-
         function sendCurrentState(targetConn) {
             targetConn.send({
                 type: 'sync_state',
@@ -283,6 +244,126 @@
             });
         }
 
+        // --- ЛОГИКА ЗРИТЕЛЯ ---
+        function startAsViewer() {
+            if (peer) peer.destroy();
+            peer = new Peer({ debug: 0 });
+
+            peer.on('open', () => {
+                connectToHost();
+            });
+
+            peer.on('error', () => {
+                handleViewerDisconnect();
+            });
+        }
+
+        function connectToHost() {
+            if (isAdmin) return;
+            if (adminConnection && adminConnection.open) return;
+
+            const conn = peer.connect(ROOM_ID + "_host", { serialization: 'json' });
+
+            conn.on('open', () => {
+                adminConnection = conn;
+                
+                // Как только админ в сети и соединение установлено — показываем кнопку синхронизации зрителям!
+                document.getElementById('waiting-text').style.display = 'none';
+                document.getElementById('sync-btn').style.display = 'block';
+
+                conn.send({ type: 'get_status' });
+                
+                if (reconnectTimer) {
+                    clearInterval(reconnectTimer);
+                    reconnectTimer = null;
+                }
+            });
+
+            conn.on('data', (data) => {
+                latestAdminData = data;
+                handleRemoteCommand(data);
+            });
+
+            conn.on('error', () => {
+                handleViewerDisconnect();
+            });
+
+            conn.on('close', () => {
+                handleViewerDisconnect();
+            });
+        }
+
+        function handleViewerDisconnect() {
+            adminConnection = null;
+            
+            // Если админ отключился, поток у зрителя НЕ останавливается (продолжает играть локально)
+            // Запускаем фоновый поиск админа для повторного появления кнопки синхронизации при его возвращении
+            if (!isAdmin && !reconnectTimer) {
+                reconnectTimer = setInterval(() => {
+                    connectToHost();
+                }, 3000);
+            }
+        }
+
+        initP2P();
+
+        // Кнопка для зрителя: активирует запуск, звук и синхронизацию с админом
+        function unlockPlayback() {
+            hasStartedStream = true;
+            document.getElementById('sync-overlay').style.display = 'none';
+            video.muted = false;
+            requestWakeLock();
+
+            if (latestAdminData) {
+                applyAdminData(latestAdminData);
+            } else if (adminConnection && adminConnection.open) {
+                adminConnection.send({ type: 'get_status' });
+            }
+        }
+
+        function handleRemoteCommand(data) {
+            if (!isAdmin) {
+                // Если админ в сети, а зритель еще не нажал кнопку старта, держим кнопку видимой
+                if (!hasStartedStream) {
+                    document.getElementById('waiting-text').style.display = 'none';
+                    document.getElementById('sync-btn').style.display = 'block';
+                    return; // Не применяем команды автоматически до нажатия кнопки старта
+                }
+
+                isSyncing = true;
+                applyAdminData(data);
+                setTimeout(() => { isSyncing = false; }, 300);
+            }
+        }
+
+        function applyAdminData(data) {
+            if (data.type === 'sync_state' || data.type === 'change_movie') {
+                const currentUrl = document.getElementById('movieSelect').value;
+                if (currentUrl !== data.url) {
+                    document.getElementById('movieSelect').value = data.url;
+                    loadVideo(data.url, data.time, () => {
+                        if (!data.paused) video.play().catch(() => {});
+                    });
+                } else {
+                    if (Math.abs(video.currentTime - data.time) > 1.5) {
+                        video.currentTime = data.time;
+                    }
+                    if (data.paused) {
+                        video.pause();
+                    } else {
+                        video.play().catch(() => {});
+                    }
+                }
+            } else if (data.type === 'seek') {
+                video.currentTime = data.time;
+            } else if (data.type === 'play') {
+                video.play().catch(() => {});
+            } else if (data.type === 'pause') {
+                video.pause();
+            }
+        }
+
+        // --- УПРАВЛЕНИЕ АДМИНОМ ---
         function toggleAdminPanel() {
             if (isAdmin) {
                 document.getElementById('admin-panel').style.display = 'flex';
@@ -292,10 +373,9 @@
             let pass = prompt("Введите код администратора:");
             if (pass === "777") {
                 isAdmin = true;
-                hasStreamStarted = true;
+                hasStartedStream = true;
                 updatePlayerControls();
                 
-                // Админу сразу загружаем видео и скрываем заставку
                 loadVideo(document.getElementById('movieSelect').value, 16, () => {
                     video.play().catch(() => {});
                 });
@@ -386,63 +466,6 @@
                         conn.send(data);
                     }
                 });
-            }
-        }
-
-        // Кнопка для зрителя: активирует звук и синхронизируется с админом
-        function unlockPlayback() {
-            hasStreamStarted = true;
-            document.getElementById('sync-overlay').style.display = 'none';
-            video.muted = false; 
-            video.play().catch(() => {});
-            requestWakeLock();
-            
-            // Сразу запрашиваем актуальный таймкод у админа при нажатии
-            if (adminConnection && adminConnection.open) {
-                adminConnection.send({ type: 'get_status' });
-            }
-        }
-
-        function handleRemoteCommand(data) {
-            if (!isAdmin) {
-                isSyncing = true;
-
-                // Как только админ прислал команду / запустил трансляцию, показываем кнопку синхронизации для зрителей
-                if (!hasStreamStarted && (data.type === 'sync_state' || data.type === 'change_movie')) {
-                    document.getElementById('waiting-text').style.display = 'none';
-                    document.getElementById('sync-btn').style.display = 'block';
-                }
-
-                if (data.type === 'sync_state' || data.type === 'change_movie') {
-                    const currentUrl = document.getElementById('movieSelect').value;
-                    if (currentUrl !== data.url) {
-                        document.getElementById('movieSelect').value = data.url;
-                        loadVideo(data.url, data.time, () => {
-                            if (hasStreamStarted && !data.paused) {
-                                video.play().catch(() => {});
-                            }
-                        });
-                    } else {
-                        if (Math.abs(video.currentTime - data.time) > 1.5) {
-                            video.currentTime = data.time;
-                        }
-                        if (data.paused) {
-                            video.pause();
-                        } else {
-                            if (hasStreamStarted) {
-                                video.play().catch(() => {});
-                            }
-                        }
-                    }
-                } else if (data.type === 'seek') {
-                    if (hasStreamStarted) video.currentTime = data.time;
-                } else if (data.type === 'play') {
-                    if (hasStreamStarted) video.play().catch(() => {});
-                } else if (data.type === 'pause') {
-                    video.pause();
-                }
-
-                setTimeout(() => { isSyncing = false; }, 300);
             }
         }
 
