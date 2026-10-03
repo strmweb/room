@@ -29,9 +29,18 @@
                 border-radius: 24px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
             }
         }
+        .video-wrapper-flex {
+            position: relative;
+            width: 100%;
+            height: 67%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+            overflow: hidden;
+        }
         .video-player {
-            position: absolute; top: 0; left: 0;
-            width: 100%; height: 67%; 
+            width: 100%; height: 100%;
             object-fit: contain; background: #000;
         }
         .chat-overlay {
@@ -152,7 +161,7 @@
             <div id="sync-btn" onclick="applySyncAndPlay()">Включить стрим</div>
         </div>
 
-        <div id="videoHolder" style="position: absolute; top: 0; left: 0; width: 100%; height: 67%;">
+        <div class="video-wrapper-flex" id="videoHolder">
             <video id="videoElement" class="video-player" playsinline autoplay></video>
         </div>
 
@@ -246,6 +255,8 @@ https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97
 https://o8.anwap.be/serials/oshls/HNDDNVU5cxTE6glAC3mVmA/1790296490/Lyudi_Iks_97_1_sezon_-_2_seriya_(anwap.org).m3u8
 Люди Икс 97 (1 сезон 3 серия)
 https://o8.anwap.be/serials/oshls/-zWD4d_xVTn6P9WXHDW5IQ/1790300984/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8
+люди
+ https://o8.anwap.be/serials/oshls/QK2CiOyYB3bEV5k_yd75LQ/1791165760/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8
 Люди Икс 97 (1 сезон 4 серия)
 https://o8.anwap.be/serials/oshls/rPxMUpcEI6I7KIdwnLWbkQ/1790301060/Lyudi_Iks_97_1_sezon_-_4_seriya_(anwap.org).m3u8
 Люди Икс 97 (1 сезон 5 серия)
@@ -293,7 +304,6 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             if (container) { container.scrollTop += offset; }
         }
 
-        // Изменено: при клике на фильм ссылка автоматически улетает в поле ввода и запускается через playCustomUrl()
         function selectPlaylistItem(index) {
             currentPlaylistIndex = index;
             activeStreamUrl = playlist[index].url;
@@ -439,7 +449,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                     renderPlaylist();
 
                     if (hasStartedStream) {
-                        loadVideo(activeStreamUrl, 0, () => {
+                        loadVideo(activeStreamUrl, 16, () => {
                             video.play().catch(() => {});
                         });
                     }
@@ -526,15 +536,19 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             video.muted = false;
             requestWakeLock();
 
+            let startTime = 16;
             if (latestAdminData) {
                 if (latestAdminData.index !== undefined) {
                     currentPlaylistIndex = latestAdminData.index;
                     activeStreamUrl = playlist[currentPlaylistIndex] ? playlist[currentPlaylistIndex].url : latestAdminData.url;
                     renderPlaylist();
                 }
+                if (latestAdminData.time !== undefined && latestAdminData.time > 0) {
+                    startTime = latestAdminData.time;
+                }
             }
 
-            loadVideo(activeStreamUrl, latestAdminData ? latestAdminData.time : 0, () => {
+            loadVideo(activeStreamUrl, startTime, () => {
                 if (latestAdminData && latestAdminData.paused) {
                     video.pause();
                 } else {
@@ -583,7 +597,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             renderPlaylist();
             
             broadcastCommand({ type: 'change_movie_index', index: currentPlaylistIndex, url: activeStreamUrl });
-            loadVideo(activeStreamUrl, 0, () => { video.play().catch(() => {}); });
+            loadVideo(activeStreamUrl, 16, () => { video.play().catch(() => {}); });
         }
 
         function playLocalVideo(event) {
@@ -596,7 +610,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             renderPlaylist();
             
             broadcastCommand({ type: 'change_movie_index', index: 0, url: activeStreamUrl });
-            loadVideo(activeStreamUrl, 0, () => { video.play().catch(() => {}); });
+            loadVideo(activeStreamUrl, 16, () => { video.play().catch(() => {}); });
         }
 
         async function togglePiP() {
@@ -625,7 +639,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             } catch (err) {}
         }
 
-        function loadVideo(url, targetTime = 0, callback) {
+        function loadVideo(url, targetTime = 16, callback) {
             if (currentHls) {
                 try {
                     currentHls.stopLoad();
@@ -666,7 +680,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                     } else if (Hls.isSupported()) {
                         currentHls = new Hls({
                             autoStartLoad: true,
-                            startPosition: targetTime > 0 ? targetTime : -1,
+                            startPosition: targetTime > 0 ? targetTime : 16,
                             maxBufferLength: 30,
                             maxMaxBufferLength: 60,
                             liveSyncDurationCount: 1,
@@ -689,7 +703,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                         currentHls.on(Hls.Events.MANIFEST_PARSED, handleStart);
                         
                         setTimeout(() => {
-                            if (video.paused && targetTime === 0) {
+                            if (video.paused && targetTime === 16) {
                                 handleStart();
                             }
                         }, 600);
@@ -719,9 +733,8 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
         }
 
         function setupStartTime(targetTime, callback) {
-            if (targetTime > 0) {
-                video.currentTime = targetTime;
-            }
+            const timeToSet = targetTime > 0 ? targetTime : 16;
+            video.currentTime = timeToSet;
             if (callback) callback();
         }
 
@@ -762,7 +775,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
         if (isAdmin) {
             hasStartedStream = true;
             document.getElementById('sync-overlay').style.display = 'none';
-            loadVideo(activeStreamUrl, 0, () => {
+            loadVideo(activeStreamUrl, 16, () => {
                 video.play().catch(() => {});
             });
         } else {
