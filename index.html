@@ -319,9 +319,9 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             renderPlaylist();
             const item = playlist[index];
             activeStreamUrl = item.url;
-            loadVideo(item.url, 16, () => {
+            loadVideo(item.url, 0, () => {
                 video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
+                broadcastCommand({ type: 'change_movie', url: item.url, time: 0, paused: false });
             });
         }
 
@@ -543,7 +543,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             } else {
                 const item = playlist[currentPlaylistIndex];
                 activeStreamUrl = item.url;
-                loadVideo(item.url, 16, () => {
+                loadVideo(item.url, 0, () => {
                     video.play().catch(() => {});
                 });
             }
@@ -670,9 +670,9 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             } catch (err) {}
         }
 
-        // Абсолютно универсальная функция loadVideo для любых устройств (полное пересоздание тега)
-        function loadVideo(url, targetTime = 16, callback) {
-            // 1. Уничтожаем старый экземпляр HLS
+        // Абсолютно чистая функция loadVideo с гарантированным пересозданием для всех устройств
+        function loadVideo(url, targetTime = 0, callback) {
+            // 1. Полностью уничтожаем старый HLS экземпляр
             if (currentHls) {
                 try {
                     currentHls.detachMedia();
@@ -681,28 +681,26 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                 currentHls = null;
             }
 
-            // 2. Полностью удаляем старый элемент video из DOM
+            // 2. Полностью вычищаем HTML-контейнер плеера
             const videoHolder = document.getElementById('videoHolder');
             if (videoHolder) {
                 videoHolder.innerHTML = '';
             }
 
-            // 3. Создаем совершенно новый тег video, чтобы телевизор не путался в старых буферах
+            // 3. Создаем абсолютно новый тег <video>, обнуляя все кэши телевизора
             const newVideo = document.createElement('video');
             newVideo.id = 'videoElement';
             newVideo.className = 'video-player';
             newVideo.setAttribute('playsinline', '');
+            newVideo.setAttribute('webkit-playsinline', '');
             newVideo.setAttribute('autoplay', '');
             newVideo.controls = isAdmin;
             videoHolder.appendChild(newVideo);
             
-            // Перепривязываем глобальную переменную видео
             video = newVideo;
-
-            // Вешаем заново слушатели событий для синхронизации
             bindVideoEvents();
 
-            // 4. Загружаем поток в зависимости от поддержки браузера
+            // 4. Инициализируем воспроизведение нового потока с задержкой для ТВ-процессора
             setTimeout(() => {
                 if (url.endsWith('.m3u8') || url.includes('.m3u8')) {
                     if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -710,14 +708,15 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                         setupStartTime(targetTime, callback);
                     } else if (Hls.isSupported()) {
                         currentHls = new Hls({
-                            maxBufferLength: 20,
-                            maxMaxBufferLength: 40,
-                            liveSyncDurationCount: 3,
-                            fragLoadingTimeOut: 15000,
-                            manifestLoadingTimeOut: 15000
+                            maxBufferLength: 15,
+                            maxMaxBufferLength: 30,
+                            liveSyncDurationCount: 2,
+                            fragLoadingTimeOut: 20000,
+                            manifestLoadingTimeOut: 20000,
+                            startLevel: -1
                         });
-                        currentHls.loadSource(url);
                         currentHls.attachMedia(video);
+                        currentHls.loadSource(url);
                         
                         currentHls.on(Hls.Events.ERROR, function(event, data) {
                             if (data.fatal) {
@@ -743,11 +742,13 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                     video.src = url;
                     setupStartTime(targetTime, callback);
                 }
-            }, 100);
+            }, 200);
         }
 
         function setupStartTime(targetTime, callback) {
-            video.currentTime = targetTime;
+            if (targetTime > 0) {
+                video.currentTime = targetTime;
+            }
             if (callback) callback();
         }
 
@@ -762,9 +763,9 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                     renderPlaylist();
                     const item = playlist[currentPlaylistIndex];
                     activeStreamUrl = item.url;
-                    loadVideo(item.url, 16, () => {
+                    loadVideo(item.url, 0, () => {
                         video.play().catch(() => {});
-                        broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
+                        broadcastCommand({ type: 'change_movie', url: item.url, time: 0, paused: false });
                     });
                 }
             });
@@ -794,7 +795,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             });
         }
 
-        // Первичная привязка событий к первому видео при загрузке страницы
+        // Первичная привязка событий
         bindVideoEvents();
 
         function broadcastCommand(data) {
