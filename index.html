@@ -164,13 +164,16 @@
 </head>
 <body>
 
-    <div class="stream-container">
+    <div class="stream-container" id="streamContainer">
         <div id="sync-overlay">
             <div id="waiting-text">Stream Room</div>
             <div id="sync-btn" onclick="applySyncAndPlay()">Включить стрим</div>
         </div>
 
-        <video id="videoElement" class="video-player" playsinline autoplay></video>
+        <!-- Контейнер для динамического создания тега video -->
+        <div id="videoHolder" style="position: absolute; top: 0; left: 0; width: 100%; height: 67%;">
+            <video id="videoElement" class="video-player" playsinline autoplay></video>
+        </div>
 
         <div class="chat-overlay">
             <div class="chat-box">
@@ -221,7 +224,7 @@
     </div>
 
     <script>
-        const video = document.getElementById('videoElement');
+        let video = document.getElementById('videoElement');
         const adminBtn = document.getElementById('adminBtn');
         let isAdmin = false;
         let peer;
@@ -338,7 +341,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
         });
 
         function updatePlayerControls() {
-            video.controls = isAdmin;
+            if (video) video.controls = isAdmin;
         }
 
         function initP2P() {
@@ -667,12 +670,9 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             } catch (err) {}
         }
 
-        // Исправленная функция loadVideo с полной очисткой памяти для телевизоров
+        // Абсолютно универсальная функция loadVideo для любых устройств (полное пересоздание тега)
         function loadVideo(url, targetTime = 16, callback) {
-            video.pause();
-            video.removeAttribute('src');
-            video.load();
-
+            // 1. Уничтожаем старый экземпляр HLS
             if (currentHls) {
                 try {
                     currentHls.detachMedia();
@@ -681,6 +681,28 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                 currentHls = null;
             }
 
+            // 2. Полностью удаляем старый элемент video из DOM
+            const videoHolder = document.getElementById('videoHolder');
+            if (videoHolder) {
+                videoHolder.innerHTML = '';
+            }
+
+            // 3. Создаем совершенно новый тег video, чтобы телевизор не путался в старых буферах
+            const newVideo = document.createElement('video');
+            newVideo.id = 'videoElement';
+            newVideo.className = 'video-player';
+            newVideo.setAttribute('playsinline', '');
+            newVideo.setAttribute('autoplay', '');
+            newVideo.controls = isAdmin;
+            videoHolder.appendChild(newVideo);
+            
+            // Перепривязываем глобальную переменную видео
+            video = newVideo;
+
+            // Вешаем заново слушатели событий для синхронизации
+            bindVideoEvents();
+
+            // 4. Загружаем поток в зависимости от поддержки браузера
             setTimeout(() => {
                 if (url.endsWith('.m3u8') || url.includes('.m3u8')) {
                     if (video.canPlayType('application/vnd.apple.mpegurl')) {
@@ -688,8 +710,8 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                         setupStartTime(targetTime, callback);
                     } else if (Hls.isSupported()) {
                         currentHls = new Hls({
-                            maxBufferLength: 30,
-                            maxMaxBufferLength: 60,
+                            maxBufferLength: 20,
+                            maxMaxBufferLength: 40,
                             liveSyncDurationCount: 3,
                             fragLoadingTimeOut: 15000,
                             manifestLoadingTimeOut: 15000
@@ -721,7 +743,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                     video.src = url;
                     setupStartTime(targetTime, callback);
                 }
-            }, 150);
+            }, 100);
         }
 
         function setupStartTime(targetTime, callback) {
@@ -729,22 +751,51 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             if (callback) callback();
         }
 
-        video.addEventListener('ended', () => {
-            if (isAdmin) {
-                if (currentPlaylistIndex < playlist.length - 1) {
-                    currentPlaylistIndex++;
-                } else {
-                    currentPlaylistIndex = 0;
+        function bindVideoEvents() {
+            video.addEventListener('ended', () => {
+                if (isAdmin) {
+                    if (currentPlaylistIndex < playlist.length - 1) {
+                        currentPlaylistIndex++;
+                    } else {
+                        currentPlaylistIndex = 0;
+                    }
+                    renderPlaylist();
+                    const item = playlist[currentPlaylistIndex];
+                    activeStreamUrl = item.url;
+                    loadVideo(item.url, 16, () => {
+                        video.play().catch(() => {});
+                        broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
+                    });
                 }
-                renderPlaylist();
-                const item = playlist[currentPlaylistIndex];
-                activeStreamUrl = item.url;
-                loadVideo(item.url, 16, () => {
-                    video.play().catch(() => {});
-                    broadcastCommand({ type: 'change_movie', url: item.url, time: 16, paused: false });
-                });
-            }
-        });
+            });
+
+            video.addEventListener('seeking', () => {
+                if (isAdmin && !isSyncing) broadcastCommand({ type: 'seek', time: video.currentTime, paused: video.paused });
+            });
+            
+            video.addEventListener('play', () => {
+                if (isAdmin && !isSyncing) {
+                    if (pauseDebounceTimer) clearTimeout(pauseDebounceTimer);
+                    broadcastCommand({ type: 'play', time: video.currentTime, paused: false });
+                }
+            });
+            
+            video.addEventListener('pause', () => {
+                if (isAdmin && !isSyncing) {
+                    if (document.hidden || document.visibilityState === 'hidden') return;
+                    
+                    if (pauseDebounceTimer) clearTimeout(pauseDebounceTimer);
+                    pauseDebounceTimer = setTimeout(() => {
+                        if (video.paused) {
+                            broadcastCommand({ type: 'pause', time: video.currentTime, paused: true });
+                        }
+                    }, 400);
+                }
+            });
+        }
+
+        // Первичная привязка событий к первому видео при загрузке страницы
+        bindVideoEvents();
 
         function broadcastCommand(data) {
             if (isAdmin) {
@@ -755,30 +806,6 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                 });
             }
         }
-
-        video.addEventListener('seeking', () => {
-            if (isAdmin && !isSyncing) broadcastCommand({ type: 'seek', time: video.currentTime, paused: video.paused });
-        });
-        
-        video.addEventListener('play', () => {
-            if (isAdmin && !isSyncing) {
-                if (pauseDebounceTimer) clearTimeout(pauseDebounceTimer);
-                broadcastCommand({ type: 'play', time: video.currentTime, paused: false });
-            }
-        });
-        
-        video.addEventListener('pause', () => {
-            if (isAdmin && !isSyncing) {
-                if (document.hidden || document.visibilityState === 'hidden') return;
-                
-                if (pauseDebounceTimer) clearTimeout(pauseDebounceTimer);
-                pauseDebounceTimer = setTimeout(() => {
-                    if (video.paused) {
-                        broadcastCommand({ type: 'pause', time: video.currentTime, paused: true });
-                    }
-                }, 400);
-            }
-        });
     </script>
 </body>
 </html>
