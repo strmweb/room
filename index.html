@@ -90,7 +90,32 @@
             100% { transform: scale(1); }
         }
 
-        /* Админка на всю высоту до чата (67% контейнера) */
+        /* Модальное окно ввода пароля с крестиком закрытия */
+        #auth-modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 67%;
+            background: rgba(10, 10, 10, 0.95); z-index: 60;
+            display: none; flex-direction: column; justify-content: center; align-items: center;
+            padding: 20px;
+        }
+        .auth-box {
+            position: relative;
+            background: #141414; border: 1px solid #333; border-radius: 12px;
+            padding: 20px; width: 100%; max-width: 280px; display: flex; flex-direction: column; gap: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.8); text-align: center;
+        }
+        .auth-box h4 { color: #00ffcc; font-size: 15px; }
+        .auth-input {
+            width: 100%; padding: 10px; background: #1a1a1a; color: #fff;
+            border: 1px solid #333; border-radius: 8px; font-size: 14px; outline: none; text-align: center;
+        }
+        .auth-close-btn {
+            position: absolute; top: 10px; right: 12px;
+            background: transparent; border: none; color: #777;
+            font-size: 16px; cursor: pointer; padding: 2px 6px;
+            border-radius: 4px; transition: color 0.2s;
+        }
+        .auth-close-btn:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
         #admin-panel {
             position: absolute; top: 0; left: 0; width: 100%; height: 67%;
             background: rgba(10, 10, 10, 0.98); z-index: 50;
@@ -185,11 +210,20 @@
                     <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg>
                 </button>
                 <button class="ctrl-btn" id="adminBtn" onclick="toggleAdminPanel()" title="Админ">
-                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c-.12.22.37.29.59.22l2.39-.96c-.5.38 1.03.7 1.62.94l.36 2.54c-.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c-.12.22.37.29.59.22l2.39-.96c-.5.38 1.03.7 1.62.94l.36 2.54c-.05.24.24.41.48.41h3.84c-.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
                 </button>
                 <a class="ctrl-btn" href="https://strmweb.github.io/films/" target="_blank" title="Фильмы">
                     <svg viewBox="0 0 24 24"><path d="M18 3v2h-2V3H8v2H6V3H4v18h2v-2h2v2h8v-2h2v2h2V3h-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/></svg>
                 </a>
+            </div>
+        </div>
+
+        <!-- Модальное окно пароля с крестиком закрытия -->
+        <div id="auth-modal">
+            <div class="auth-box">
+                <button class="auth-close-btn" onclick="closeAuthModal()" title="Закрыть">✕</button>
+                <h4>Пароль администратора</h4>
+                <input type="password" id="authPasswordInput" class="auth-input" placeholder="Введите пароль..." oninput="checkAdminPasswordAuto()" onkeydown="handlePasswordKey(event)">
             </div>
         </div>
 
@@ -373,7 +407,7 @@
                         paused: video.paused
                     });
                 }
-            }, 1500);
+            }, 2000);
         }
 
         function sendCurrentState(targetConn) {
@@ -432,7 +466,7 @@
                     if (hasStartedStream && activeStreamUrl === data.url) {
                         isSyncing = true;
                         
-                        if (Math.abs(video.currentTime - data.time) > 2.5) {
+                        if (Math.abs(video.currentTime - data.time) > 3.0) {
                             video.currentTime = data.time;
                         }
                         
@@ -442,13 +476,17 @@
                             video.play().catch(() => {});
                         }
 
-                        setTimeout(() => { isSyncing = false; }, 300);
+                        setTimeout(() => { isSyncing = false; }, 400);
                         return;
                     }
                 }
 
                 if (data.type === 'change_movie') {
-                    showSyncPrompt("Обновить стрим");
+                    if (hasStartedStream) {
+                        applyAdminData(data);
+                    } else {
+                        showSyncPrompt("Обновить стрим");
+                    }
                 }
             });
 
@@ -469,6 +507,7 @@
             } else {
                 waitingText.style.display = 'none';
                 syncBtn.innerText = buttonText || "Обновить стрим";
+                syncBtn.style.display = 'block';
                 syncBtn.onclick = () => location.reload();
             }
             syncBtn.style.display = 'block';
@@ -506,16 +545,16 @@
             if (latestAdminData) {
                 isSyncing = true;
                 applyAdminData(latestAdminData);
-                setTimeout(() => { isSyncing = false; }, 300);
+                setTimeout(() => { isSyncing = false; }, 400);
             } else if (adminConnection && adminConnection.open) {
                 adminConnection.send({ type: 'get_status' });
                 setTimeout(() => {
                     if (latestAdminData) {
                         isSyncing = true;
                         applyAdminData(latestAdminData);
-                        setTimeout(() => { isSyncing = false; }, 300);
+                        setTimeout(() => { isSyncing = false; }, 400);
                     }
-                }, 400);
+                }, 500);
             } else {
                 const item = playlist[currentPlaylistIndex];
                 activeStreamUrl = item.url;
@@ -533,10 +572,10 @@
             }
             activeStreamUrl = data.url;
 
-            const isDifferentSource = !video.src || !video.src.includes(encodeURI(data.url).substring(0, 40)) && video.src !== data.url;
+            const isDifferentSource = !video.src || (!video.src.includes(encodeURI(data.url).substring(0, 30)) && video.src !== data.url);
 
             if (data.type === 'change_movie' || isDifferentSource) {
-                loadVideo(data.url, data.time, () => {
+                loadVideo(data.url, 16, () => {
                     if (!data.paused) {
                         video.play().catch(() => {});
                     } else {
@@ -544,7 +583,7 @@
                     }
                 });
             } else {
-                if (Math.abs(video.currentTime - data.time) > 2.5) {
+                if (Math.abs(video.currentTime - data.time) > 3.0) {
                     video.currentTime = data.time;
                 }
                 if (data.paused) {
@@ -562,19 +601,47 @@
                 return;
             }
 
-            let pass = prompt("Введите код администратора:");
-            if (pass === "777") {
-                isAdmin = true;
-                hasStartedStream = true;
-                updatePlayerControls();
-                adminBtn.classList.add('admin-active');
+            const modal = document.getElementById('auth-modal');
+            const passInput = document.getElementById('authPasswordInput');
+            passInput.value = '';
+            modal.style.display = 'flex';
+            passInput.focus();
+        }
 
-                document.getElementById('sync-overlay').style.display = 'none';
+        function closeAuthModal() {
+            document.getElementById('auth-modal').style.display = 'none';
+        }
 
-                startAsHost();
-                document.getElementById('admin-panel').style.display = 'flex';
-            } else if (pass !== null) {
-                alert("Неверный пароль!");
+        function triggerAdminLogin() {
+            isAdmin = true;
+            hasStartedStream = true;
+            updatePlayerControls();
+            adminBtn.classList.add('admin-active');
+
+            document.getElementById('auth-modal').style.display = 'none';
+            document.getElementById('sync-overlay').style.display = 'none';
+
+            startAsHost();
+            document.getElementById('admin-panel').style.display = 'flex';
+        }
+
+        function checkAdminPasswordAuto() {
+            const passInput = document.getElementById('authPasswordInput');
+            if (passInput.value === "777") {
+                triggerAdminLogin();
+            }
+        }
+
+        function handlePasswordKey(event) {
+            if (event.key === 'Enter') {
+                const passInput = document.getElementById('authPasswordInput');
+                if (passInput.value === "777") {
+                    triggerAdminLogin();
+                } else {
+                    alert("Неверный пароль!");
+                    passInput.value = '';
+                    passInput.focus();
+                }
             }
         }
 
@@ -597,9 +664,9 @@
             renderPlaylist();
             activeStreamUrl = url;
 
-            loadVideo(url, 0, () => {
+            loadVideo(url, 16, () => {
                 video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: url, time: 0, paused: false });
+                broadcastCommand({ type: 'change_movie', url: url, time: 16, paused: false });
             });
             urlInput.value = '';
         }
@@ -614,9 +681,9 @@
             renderPlaylist();
             activeStreamUrl = fileURL;
 
-            loadVideo(fileURL, 0, () => {
+            loadVideo(fileURL, 16, () => {
                 video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: fileURL, time: 0, paused: false });
+                broadcastCommand({ type: 'change_movie', url: fileURL, time: 16, paused: false });
             });
         }
 
@@ -646,7 +713,10 @@
             } catch (err) {}
         }
 
+        // Загрузка видео с жестким закреплением на 16-й секунде
         function loadVideo(url, targetTime = 16, callback) {
+            targetTime = 16; // ВСЕГДА переопределяем на 16 секунд для любого видео
+
             if (currentHls) {
                 currentHls.destroy();
                 currentHls = null;
@@ -659,9 +729,8 @@
                 if (url.endsWith('.m3u8') || url.includes('.m3u8')) {
                     if (video.canPlayType('application/vnd.apple.mpegurl')) {
                         video.src = url;
-                        setupStartTime(targetTime, callback);
+                        setupStartTimeSafe(targetTime, callback);
                     } else if (Hls.isSupported()) {
-                        // НАСТРОЙКИ HLS С ЗАЩИТОЙ ОТ ЗАВИСАНИЙ НА ТВ
                         currentHls = new Hls({
                             maxBufferLength: 30,
                             maxMaxBufferLength: 60,
@@ -695,19 +764,30 @@
                         });
 
                         currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
-                            setupStartTime(targetTime, callback);
+                            setupStartTimeSafe(targetTime, callback);
                         });
                     }
                 } else {
                     video.src = url;
-                    setupStartTime(targetTime, callback);
+                    setupStartTimeSafe(targetTime, callback);
                 }
             }, 50);
         }
 
-        function setupStartTime(targetTime, callback) {
-            video.currentTime = targetTime;
-            if (callback) callback();
+        function setupStartTimeSafe(targetTime, callback) {
+            const onReady = () => {
+                video.removeEventListener('loadedmetadata', onReady);
+                try {
+                    video.currentTime = targetTime;
+                } catch (e) {}
+                if (callback) callback();
+            };
+
+            if (video.readyState >= 1) {
+                onReady();
+            } else {
+                video.addEventListener('loadedmetadata', onReady);
+            }
         }
 
         video.addEventListener('ended', () => {
