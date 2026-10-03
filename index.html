@@ -255,8 +255,6 @@
             debug: 0
         };
 
-        // Плейлист: название и ссылка с новой строки. 
-        // Чтобы добавить новый пункт, просто допишите строку названия и строку ссылки.
         const rawPlaylistData = `
 Люди Икс 97 (1 сезон 1 серия)
 https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97_1_sezon_-_1_seriya_(anwap.org).m3u8
@@ -280,7 +278,6 @@ https://o9.anwap.be/serials/oshls/Mk3yOj0cscTRY0uIkvId3Q/1790301313/Lyudi_Iks_97
 https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97_1_sezon_-_10_seriya_(anwap.org).m3u8
         `;
 
-        // Автоматический парсинг текста в массив объектов
         let playlist = [];
         (() => {
             const lines = rawPlaylistData.split('\n').map(l => l.trim()).filter(l => l.length > 0);
@@ -670,14 +667,19 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             } catch (err) {}
         }
 
+        // Исправленная функция loadVideo с полной очисткой памяти для телевизоров
         function loadVideo(url, targetTime = 16, callback) {
-            if (currentHls) {
-                currentHls.destroy();
-                currentHls = null;
-            }
             video.pause();
             video.removeAttribute('src');
             video.load();
+
+            if (currentHls) {
+                try {
+                    currentHls.detachMedia();
+                    currentHls.destroy();
+                } catch (e) {}
+                currentHls = null;
+            }
 
             setTimeout(() => {
                 if (url.endsWith('.m3u8') || url.includes('.m3u8')) {
@@ -686,11 +688,11 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                         setupStartTime(targetTime, callback);
                     } else if (Hls.isSupported()) {
                         currentHls = new Hls({
-                            maxBufferLength: 60,
-                            maxMaxBufferLength: 120,
+                            maxBufferLength: 30,
+                            maxMaxBufferLength: 60,
                             liveSyncDurationCount: 3,
-                            fragLoadingTimeOut: 20000,
-                            manifestLoadingTimeOut: 20000
+                            fragLoadingTimeOut: 15000,
+                            manifestLoadingTimeOut: 15000
                         });
                         currentHls.loadSource(url);
                         currentHls.attachMedia(video);
@@ -719,7 +721,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                     video.src = url;
                     setupStartTime(targetTime, callback);
                 }
-            }, 50);
+            }, 150);
         }
 
         function setupStartTime(targetTime, callback) {
