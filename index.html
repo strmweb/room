@@ -255,8 +255,6 @@ https://o8.anwap.be/serials/oshls/IUjtqdHF7qTfnQsJGYp_sA/1790282612/Lyudi_Iks_97
 https://o8.anwap.be/serials/oshls/HNDDNVU5cxTE6glAC3mVmA/1790296490/Lyudi_Iks_97_1_sezon_-_2_seriya_(anwap.org).m3u8
 Люди Икс 97 (1 сезон 3 серия)
 https://o8.anwap.be/serials/oshls/-zWD4d_xVTn6P9WXHDW5IQ/1790300984/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8
-люди
- https://o8.anwap.be/serials/oshls/QK2CiOyYB3bEV5k_yd75LQ/1791165760/Lyudi_Iks_97_1_sezon_-_3_seriya_(anwap.org).m3u8
 Люди Икс 97 (1 сезон 4 серия)
 https://o8.anwap.be/serials/oshls/rPxMUpcEI6I7KIdwnLWbkQ/1790301060/Lyudi_Iks_97_1_sezon_-_4_seriya_(anwap.org).m3u8
 Люди Икс 97 (1 сезон 5 серия)
@@ -309,12 +307,9 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             activeStreamUrl = playlist[index].url;
             renderPlaylist();
 
-            const urlInput = document.getElementById('customUrlInput');
-            if (urlInput) {
-                urlInput.value = activeStreamUrl;
-            }
-
-            playCustomUrl();
+            // Поле ручного ввода ссылки больше не затрагивается
+            broadcastCommand({ type: 'change_movie_index', index: currentPlaylistIndex, url: activeStreamUrl });
+            loadVideo(activeStreamUrl, 16, () => { video.play().catch(() => {}); });
         }
 
         async function requestWakeLock() {
@@ -594,9 +589,8 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             url = url.replace(/^["'](.+)["']$/, '$1').trim();
             
             activeStreamUrl = url;
-            renderPlaylist();
             
-            broadcastCommand({ type: 'change_movie_index', index: currentPlaylistIndex, url: activeStreamUrl });
+            broadcastCommand({ type: 'change_movie_index', index: -1, url: activeStreamUrl });
             loadVideo(activeStreamUrl, 16, () => { video.play().catch(() => {}); });
         }
 
