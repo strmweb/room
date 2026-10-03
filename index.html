@@ -293,23 +293,18 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             if (container) { container.scrollTop += offset; }
         }
 
+        // Изменено: при клике на фильм ссылка автоматически улетает в поле ввода и запускается через playCustomUrl()
         function selectPlaylistItem(index) {
             currentPlaylistIndex = index;
-            
-            // Принудительно добавляем защиту от кэширования домена для телевизора
-            let rawUrl = playlist[index].url;
-            if (!rawUrl.startsWith('blob:') && !rawUrl.includes('ts=')) {
-                rawUrl += (rawUrl.includes('?') ? '&' : '?') + 'ts=' + Date.now();
-            }
-            
-            activeStreamUrl = rawUrl;
+            activeStreamUrl = playlist[index].url;
             renderPlaylist();
 
-            broadcastCommand({ type: 'change_movie_index', index: index, url: activeStreamUrl });
+            const urlInput = document.getElementById('customUrlInput');
+            if (urlInput) {
+                urlInput.value = activeStreamUrl;
+            }
 
-            loadVideo(activeStreamUrl, 0, () => {
-                video.play().catch(() => {});
-            });
+            playCustomUrl();
         }
 
         async function requestWakeLock() {
@@ -440,11 +435,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
 
                 if (data.type === 'change_movie_index') {
                     currentPlaylistIndex = data.index;
-                    let cleanUrl = data.url;
-                    if (!cleanUrl.startsWith('blob:') && !cleanUrl.includes('ts=')) {
-                        cleanUrl += (cleanUrl.includes('?') ? '&' : '?') + 'ts=' + Date.now();
-                    }
-                    activeStreamUrl = cleanUrl;
+                    activeStreamUrl = data.url;
                     renderPlaylist();
 
                     if (hasStartedStream) {
@@ -458,11 +449,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                 if (data.type === 'sync_state' || data.type === 'seek' || data.type === 'pause' || data.type === 'play') {
                     if (data.index !== undefined && data.index !== currentPlaylistIndex) {
                         currentPlaylistIndex = data.index;
-                        let cleanUrl = data.url;
-                        if (!cleanUrl.startsWith('blob:') && !cleanUrl.includes('ts=')) {
-                            cleanUrl += (cleanUrl.includes('?') ? '&' : '?') + 'ts=' + Date.now();
-                        }
-                        activeStreamUrl = cleanUrl;
+                        activeStreamUrl = data.url;
                         renderPlaylist();
                         if (hasStartedStream) {
                             loadVideo(activeStreamUrl, data.time, () => {
@@ -542,11 +529,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             if (latestAdminData) {
                 if (latestAdminData.index !== undefined) {
                     currentPlaylistIndex = latestAdminData.index;
-                    let cleanUrl = playlist[currentPlaylistIndex] ? playlist[currentPlaylistIndex].url : latestAdminData.url;
-                    if (!cleanUrl.startsWith('blob:') && !cleanUrl.includes('ts=')) {
-                        cleanUrl += (cleanUrl.includes('?') ? '&' : '?') + 'ts=' + Date.now();
-                    }
-                    activeStreamUrl = cleanUrl;
+                    activeStreamUrl = playlist[currentPlaylistIndex] ? playlist[currentPlaylistIndex].url : latestAdminData.url;
                     renderPlaylist();
                 }
             }
@@ -595,12 +578,11 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                 return;
             }
             url = url.replace(/^["'](.+)["']$/, '$1').trim();
-            playlist.unshift({ title: "🔗 " + url.split('/').pop().substring(0, 30), url: url });
-            currentPlaylistIndex = 0;
+            
             activeStreamUrl = url;
             renderPlaylist();
             
-            broadcastCommand({ type: 'change_movie_index', index: 0, url: activeStreamUrl });
+            broadcastCommand({ type: 'change_movie_index', index: currentPlaylistIndex, url: activeStreamUrl });
             loadVideo(activeStreamUrl, 0, () => { video.play().catch(() => {}); });
         }
 
