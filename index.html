@@ -485,7 +485,8 @@
                     if (hasStartedStream) {
                         applyAdminData(data);
                     } else {
-                        showSyncPrompt("Обновить стрим");
+                        // Если зритель только зашел и видит дефолтное окно, но админ передал видео — автоматически запускаем стрим без кнопок!
+                        applySyncAndPlay();
                     }
                 }
             });
@@ -504,28 +505,14 @@
                 waitingText.style.display = 'block';
                 waitingText.innerText = "Stream Room";
                 syncBtn.innerText = buttonText || "Включить стрим";
-            } else {
-                waitingText.style.display = 'none';
-                syncBtn.innerText = buttonText || "Обновить стрим";
                 syncBtn.style.display = 'block';
-                syncBtn.onclick = () => location.reload();
+            } else {
+                syncOverlay.style.display = 'none';
             }
-            syncBtn.style.display = 'block';
         }
 
         function handleViewerDisconnect() {
             adminConnection = null;
-            if (!isAdmin && hasStartedStream) {
-                const syncOverlay = document.getElementById('sync-overlay');
-                const waitingText = document.getElementById('waiting-text');
-                const syncBtn = document.getElementById('sync-btn');
-
-                syncOverlay.style.display = 'flex';
-                waitingText.style.display = 'none';
-                syncBtn.innerText = "Обновить стрим";
-                syncBtn.style.display = 'block';
-                syncBtn.onclick = () => location.reload();
-            }
 
             if (!isAdmin && !reconnectTimer) {
                 reconnectTimer = setInterval(() => {
