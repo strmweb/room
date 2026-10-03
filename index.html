@@ -90,7 +90,6 @@
             100% { transform: scale(1); }
         }
 
-        /* Админка на всю высоту до чата (67% контейнера) */
         #admin-panel {
             position: absolute; top: 0; left: 0; width: 100%; height: 67%;
             background: rgba(10, 10, 10, 0.98); z-index: 50;
@@ -104,13 +103,7 @@
         .admin-label { font-size: 11px; color: #aaa; }
         
         .playlist-wrapper {
-            position: relative;
-            width: 100%;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            flex: 1;
-            min-height: 120px;
+            position: relative; width: 100%; display: flex; align-items: center; gap: 6px; flex: 1; min-height: 120px;
         }
         .playlist-container {
             flex: 1; height: 100%; background: #141414;
@@ -119,24 +112,13 @@
             scroll-behavior: smooth;
         }
         .playlist-scroll-btn {
-            background: rgba(0, 255, 204, 0.15);
-            color: #00ffcc;
-            border: 1px solid rgba(0, 255, 204, 0.4);
-            border-radius: 6px;
-            width: 32px;
-            height: 100%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            font-weight: bold;
-            transition: background 0.2s;
-            flex-shrink: 0;
+            background: rgba(0, 255, 204, 0.15); color: #00ffcc;
+            border: 1px solid rgba(0, 255, 204, 0.4); border-radius: 6px;
+            width: 32px; height: 100%; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: bold; transition: background 0.2s; flex-shrink: 0;
         }
-        .playlist-scroll-btn:hover {
-            background: rgba(0, 255, 204, 0.3);
-        }
+        .playlist-scroll-btn:hover { background: rgba(0, 255, 204, 0.3); }
 
         .playlist-item {
             padding: 10px 12px; background: #1f1f1f; color: #ffffff; font-size: 13px;
@@ -170,7 +152,6 @@
             <div id="sync-btn" onclick="applySyncAndPlay()">Включить стрим</div>
         </div>
 
-        <!-- Контейнер для динамического создания тега video -->
         <div id="videoHolder" style="position: absolute; top: 0; left: 0; width: 100%; height: 67%;">
             <video id="videoElement" class="video-player" playsinline autoplay></video>
         </div>
@@ -188,7 +169,7 @@
                     <svg viewBox="0 0 24 24"><path d="M19 7h-8v6h8V7zm2-4H3c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16.01H3V4.99h18v14.02z"/></svg>
                 </button>
                 <button class="ctrl-btn" id="adminBtn" onclick="toggleAdminPanel()" title="Админ">
-                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c-.12.22.37.29.59.22l2.39-.96c-.5.38 1.03.7 1.62.94l.36 2.54c-.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                    <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c-.12.22.37.29.59.22l2.39-.96c-.5.38 1.03.7 1.62.94l.36 2.54c-.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c-.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
                 </button>
                 <a class="ctrl-btn" href="https://strmweb.github.io/films/" target="_blank" title="Фильмы">
                     <svg viewBox="0 0 24 24"><path d="M18 3v2h-2V3H8v2H6V3H4v18h2v-2h2v2h8v-2h2v2h2V3h-2zM8 17H6v-2h2v2zm0-4H6v-2h2v2zm0-4H6V7h2v2zm10 8h-2v-2h2v2zm0-4h-2v-2h2v2zm0-4h-2V7h2v2z"/></svg>
@@ -292,7 +273,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
         })();
 
         let currentPlaylistIndex = 0;
-        let activeStreamUrl = null;
+        let activeStreamUrl = playlist[0].url;
 
         function renderPlaylist() {
             const container = document.getElementById('playlistContainer');
@@ -309,19 +290,20 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
 
         function scrollPlaylist(offset) {
             const container = document.getElementById('playlistContainer');
-            if (container) {
-                container.scrollTop += offset;
-            }
+            if (container) { container.scrollTop += offset; }
         }
 
         function selectPlaylistItem(index) {
             currentPlaylistIndex = index;
+            activeStreamUrl = playlist[index].url;
             renderPlaylist();
-            const item = playlist[index];
-            activeStreamUrl = item.url;
-            loadVideo(item.url, 0, () => {
+
+            // Команда всем зрителям переключить индекс и видео без перезагрузки страницы
+            broadcastCommand({ type: 'change_movie_index', index: index, url: activeStreamUrl });
+
+            // Запускаем локально у админа
+            loadVideo(activeStreamUrl, 0, () => {
                 video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: item.url, time: 0, paused: false });
             });
         }
 
@@ -351,7 +333,6 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
 
         function startAsHost() {
             if (peer) { try { peer.destroy(); } catch (e) {} }
-            
             peer = new Peer(ROOM_ID + "_host", peerConfig);
 
             peer.on('open', () => {
@@ -392,6 +373,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                 if (isAdmin && !video.paused && activeStreamUrl) {
                     broadcastCommand({
                         type: 'sync_state',
+                        index: currentPlaylistIndex,
                         url: activeStreamUrl,
                         time: video.currentTime,
                         paused: video.paused
@@ -401,9 +383,10 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
         }
 
         function sendCurrentState(targetConn) {
-            if (isAdmin && activeStreamUrl) {
+            if (isAdmin) {
                 targetConn.send({
-                    type: 'change_movie',
+                    type: 'sync_state',
+                    index: currentPlaylistIndex,
                     url: activeStreamUrl,
                     time: video.currentTime,
                     paused: video.paused
@@ -422,9 +405,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                 connectToHost();
             });
 
-            peer.on('error', () => {
-                handleViewerDisconnect();
-            });
+            peer.on('error', () => { handleViewerDisconnect(); });
 
             setTimeout(() => {
                 if (!connectionResolved && !hasStartedStream) {
@@ -452,27 +433,46 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             conn.on('data', (data) => {
                 latestAdminData = data;
 
+                if (data.type === 'change_movie_index') {
+                    currentPlaylistIndex = data.index;
+                    activeStreamUrl = data.url;
+                    renderPlaylist();
+
+                    if (hasStartedStream) {
+                        loadVideo(activeStreamUrl, 0, () => {
+                            video.play().catch(() => {});
+                        });
+                    }
+                    return;
+                }
+
                 if (data.type === 'sync_state' || data.type === 'seek' || data.type === 'pause' || data.type === 'play') {
-                    if (hasStartedStream && activeStreamUrl === data.url) {
+                    if (data.index !== undefined && data.index !== currentPlaylistIndex) {
+                        currentPlaylistIndex = data.index;
+                        activeStreamUrl = data.url;
+                        renderPlaylist();
+                        if (hasStartedStream) {
+                            loadVideo(activeStreamUrl, data.time, () => {
+                                if (data.paused) video.pause();
+                                else video.play().catch(() => {});
+                            });
+                        }
+                        return;
+                    }
+
+                    if (hasStartedStream) {
                         isSyncing = true;
-                        
                         if (Math.abs(video.currentTime - data.time) > 2.5) {
                             video.currentTime = data.time;
                         }
-                        
                         if (data.paused) {
                             video.pause();
                         } else {
                             video.play().catch(() => {});
                         }
-
                         setTimeout(() => { isSyncing = false; }, 300);
                         return;
                     }
-                }
-
-                if (data.type === 'change_movie') {
-                    showSyncPrompt("Обновить стрим");
                 }
             });
 
@@ -492,7 +492,8 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                 syncBtn.innerText = buttonText || "Включить стрим";
             } else {
                 waitingText.style.display = 'none';
-                syncBtn.innerText = buttonText || "Обновить стрим";
+                syncBtn.innerText = "Обновить стрим";
+                syncBtn.style.display = 'block';
                 syncBtn.onclick = () => location.reload();
             }
             syncBtn.style.display = 'block';
@@ -513,9 +514,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             }
 
             if (!isAdmin && !reconnectTimer) {
-                reconnectTimer = setInterval(() => {
-                    connectToHost();
-                }, 4000);
+                reconnectTimer = setInterval(() => { connectToHost(); }, 4000);
             }
         }
 
@@ -528,55 +527,20 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             requestWakeLock();
 
             if (latestAdminData) {
-                isSyncing = true;
-                applyAdminData(latestAdminData);
-                setTimeout(() => { isSyncing = false; }, 300);
-            } else if (adminConnection && adminConnection.open) {
-                adminConnection.send({ type: 'get_status' });
-                setTimeout(() => {
-                    if (latestAdminData) {
-                        isSyncing = true;
-                        applyAdminData(latestAdminData);
-                        setTimeout(() => { isSyncing = false; }, 300);
-                    }
-                }, 400);
-            } else {
-                const item = playlist[currentPlaylistIndex];
-                activeStreamUrl = item.url;
-                loadVideo(item.url, 0, () => {
-                    video.play().catch(() => {});
-                });
-            }
-        }
-
-        function applyAdminData(data) {
-            let foundIdx = playlist.findIndex(p => p.url === data.url);
-            if (foundIdx !== -1) {
-                currentPlaylistIndex = foundIdx;
-                renderPlaylist();
-            }
-            activeStreamUrl = data.url;
-
-            const isDifferentSource = !video.src || !video.src.includes(encodeURI(data.url).substring(0, 40)) && video.src !== data.url;
-
-            if (data.type === 'change_movie' || isDifferentSource) {
-                loadVideo(data.url, data.time, () => {
-                    if (!data.paused) {
-                        video.play().catch(() => {});
-                    } else {
-                        video.pause();
-                    }
-                });
-            } else {
-                if (Math.abs(video.currentTime - data.time) > 2.5) {
-                    video.currentTime = data.time;
+                if (latestAdminData.index !== undefined) {
+                    currentPlaylistIndex = latestAdminData.index;
+                    activeStreamUrl = latestAdminData.url;
+                    renderPlaylist();
                 }
-                if (data.paused) {
+            }
+
+            loadVideo(activeStreamUrl, latestAdminData ? latestAdminData.time : 0, () => {
+                if (latestAdminData && latestAdminData.paused) {
                     video.pause();
                 } else {
                     video.play().catch(() => {});
                 }
-            }
+            });
         }
 
         function toggleAdminPanel() {
@@ -613,35 +577,27 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                 alert("Введите ссылку на видео!");
                 return;
             }
-
             url = url.replace(/^["'](.+)["']$/, '$1').trim();
-
             playlist.unshift({ title: "🔗 " + url.split('/').pop().substring(0, 30), url: url });
             currentPlaylistIndex = 0;
-            renderPlaylist();
             activeStreamUrl = url;
-
-            loadVideo(url, 0, () => {
-                video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: url, time: 0, paused: false });
-            });
-            urlInput.value = '';
+            renderPlaylist();
+            
+            broadcastCommand({ type: 'change_movie_index', index: 0, url: activeStreamUrl });
+            loadVideo(activeStreamUrl, 0, () => { video.play().catch(() => {}); });
         }
 
         function playLocalVideo(event) {
             const file = event.target.files[0];
             if (!file) return;
             const fileURL = URL.createObjectURL(file);
-
             playlist.unshift({ title: `📁 ${file.name}`, url: fileURL });
             currentPlaylistIndex = 0;
-            renderPlaylist();
             activeStreamUrl = fileURL;
-
-            loadVideo(fileURL, 0, () => {
-                video.play().catch(() => {});
-                broadcastCommand({ type: 'change_movie', url: fileURL, time: 0, paused: false });
-            });
+            renderPlaylist();
+            
+            broadcastCommand({ type: 'change_movie_index', index: 0, url: activeStreamUrl });
+            loadVideo(activeStreamUrl, 0, () => { video.play().catch(() => {}); });
         }
 
         async function togglePiP() {
@@ -670,24 +626,25 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             } catch (err) {}
         }
 
-        // Абсолютно чистая функция loadVideo с гарантированным пересозданием для всех устройств
+        // Ключевая функция безопасной смены видео без перезагрузки страницы (очищает аппаратный декодер телевизора)
         function loadVideo(url, targetTime = 0, callback) {
-            // 1. Полностью уничтожаем старый HLS экземпляр
+            // 1. Полностью гасим предыдущий HLS контекст
             if (currentHls) {
                 try {
+                    currentHls.stopLoad();
                     currentHls.detachMedia();
                     currentHls.destroy();
                 } catch (e) {}
                 currentHls = null;
             }
 
-            // 2. Полностью вычищаем HTML-контейнер плеера
+            // 2. Полностью удаляем старый тег из DOM
             const videoHolder = document.getElementById('videoHolder');
             if (videoHolder) {
                 videoHolder.innerHTML = '';
             }
 
-            // 3. Создаем абсолютно новый тег <video>, обнуляя все кэши телевизора
+            // 3. Создаем новый чистый тег <video> для сброса состояния декодера телевизора
             const newVideo = document.createElement('video');
             newVideo.id = 'videoElement';
             newVideo.className = 'video-player';
@@ -700,23 +657,30 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             video = newVideo;
             bindVideoEvents();
 
-            // 4. Инициализируем воспроизведение нового потока с задержкой для ТВ-процессора
+            // 4. Пауза для телевизионного процессора + уникальный ts параметр против кэширования
             setTimeout(() => {
-                if (url.endsWith('.m3u8') || url.includes('.m3u8')) {
+                let streamUrl = url;
+                if (!streamUrl.startsWith('blob:') && !streamUrl.includes('ts=')) {
+                    streamUrl += (streamUrl.includes('?') ? '&' : '?') + 'ts=' + Date.now();
+                }
+
+                if (streamUrl.endsWith('.m3u8') || streamUrl.includes('.m3u8')) {
                     if (video.canPlayType('application/vnd.apple.mpegurl')) {
-                        video.src = url;
+                        video.src = streamUrl;
                         setupStartTime(targetTime, callback);
                     } else if (Hls.isSupported()) {
                         currentHls = new Hls({
-                            maxBufferLength: 15,
-                            maxMaxBufferLength: 30,
-                            liveSyncDurationCount: 2,
-                            fragLoadingTimeOut: 20000,
-                            manifestLoadingTimeOut: 20000,
-                            startLevel: -1
+                            maxBufferLength: 10,
+                            maxMaxBufferLength: 20,
+                            liveSyncDurationCount: 1,
+                            fragLoadingTimeOut: 15000,
+                            manifestLoadingTimeOut: 15000,
+                            startLevel: -1,
+                            abrEwmaDefaultEstimate: 500000
                         });
+                        
                         currentHls.attachMedia(video);
-                        currentHls.loadSource(url);
+                        currentHls.loadSource(streamUrl);
                         
                         currentHls.on(Hls.Events.ERROR, function(event, data) {
                             if (data.fatal) {
@@ -739,10 +703,10 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                         });
                     }
                 } else {
-                    video.src = url;
+                    video.src = streamUrl;
                     setupStartTime(targetTime, callback);
                 }
-            }, 200);
+            }, 300);
         }
 
         function setupStartTime(targetTime, callback) {
@@ -753,50 +717,48 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
         }
 
         function bindVideoEvents() {
+            // Автоматический переход к следующей серии по окончании текущей
             video.addEventListener('ended', () => {
                 if (isAdmin) {
-                    if (currentPlaylistIndex < playlist.length - 1) {
-                        currentPlaylistIndex++;
-                    } else {
-                        currentPlaylistIndex = 0;
-                    }
-                    renderPlaylist();
-                    const item = playlist[currentPlaylistIndex];
-                    activeStreamUrl = item.url;
-                    loadVideo(item.url, 0, () => {
-                        video.play().catch(() => {});
-                        broadcastCommand({ type: 'change_movie', url: item.url, time: 0, paused: false });
-                    });
+                    let nextIndex = (currentPlaylistIndex < playlist.length - 1) ? currentPlaylistIndex + 1 : 0;
+                    selectPlaylistItem(nextIndex);
                 }
             });
 
             video.addEventListener('seeking', () => {
-                if (isAdmin && !isSyncing) broadcastCommand({ type: 'seek', time: video.currentTime, paused: video.paused });
+                if (isAdmin && !isSyncing) broadcastCommand({ type: 'seek', index: currentPlaylistIndex, url: activeStreamUrl, time: video.currentTime, paused: video.paused });
             });
             
             video.addEventListener('play', () => {
                 if (isAdmin && !isSyncing) {
                     if (pauseDebounceTimer) clearTimeout(pauseDebounceTimer);
-                    broadcastCommand({ type: 'play', time: video.currentTime, paused: false });
+                    broadcastCommand({ type: 'play', index: currentPlaylistIndex, url: activeStreamUrl, time: video.currentTime, paused: false });
                 }
             });
             
             video.addEventListener('pause', () => {
                 if (isAdmin && !isSyncing) {
                     if (document.hidden || document.visibilityState === 'hidden') return;
-                    
                     if (pauseDebounceTimer) clearTimeout(pauseDebounceTimer);
                     pauseDebounceTimer = setTimeout(() => {
                         if (video.paused) {
-                            broadcastCommand({ type: 'pause', time: video.currentTime, paused: true });
+                            broadcastCommand({ type: 'pause', index: currentPlaylistIndex, url: activeStreamUrl, time: video.currentTime, paused: true });
                         }
                     }, 400);
                 }
             });
         }
 
-        // Первичная привязка событий
         bindVideoEvents();
+
+        // Первичный запуск первого видео при открытии страницы
+        loadVideo(activeStreamUrl, 0, () => {
+            if (isAdmin) {
+                hasStartedStream = true;
+                document.getElementById('sync-overlay').style.display = 'none';
+                video.play().catch(() => {});
+            }
+        });
 
         function broadcastCommand(data) {
             if (isAdmin) {
