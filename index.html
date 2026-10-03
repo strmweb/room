@@ -307,7 +307,6 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
             activeStreamUrl = playlist[index].url;
             renderPlaylist();
 
-            // Поле ручного ввода ссылки больше не затрагивается
             broadcastCommand({ type: 'change_movie_index', index: currentPlaylistIndex, url: activeStreamUrl });
             loadVideo(activeStreamUrl, 16, () => { video.play().catch(() => {}); });
         }
@@ -723,7 +722,7 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
                     video.load();
                     setupStartTime(targetTime, callback);
                 }
-            }, 500);
+            }, 300);
         }
 
         function setupStartTime(targetTime, callback) {
@@ -733,10 +732,10 @@ https://o9.anwap.be/serials/oshls/zLgXHhmoa3mVcAFc2e2KUQ/1790301346/Lyudi_Iks_97
         }
 
         function bindVideoEvents() {
+            // Очередь отключена: видео теперь останавливается по окончании без автопереключения
             video.addEventListener('ended', () => {
                 if (isAdmin) {
-                    let nextIndex = (currentPlaylistIndex < playlist.length - 1) ? currentPlaylistIndex + 1 : 0;
-                    selectPlaylistItem(nextIndex);
+                    video.pause();
                 }
             });
 
